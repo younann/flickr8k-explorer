@@ -53,7 +53,18 @@ class DatasetRepository:
             terms = connection.execute("""SELECT lower(value) AS term, COUNT(*) AS count
                 FROM captions, json_each('["' || replace(replace(lower(text), '"', ''), ' ', '","') || '"]')
                 WHERE length(value) > 3 GROUP BY lower(value) ORDER BY count DESC, term LIMIT 10""").fetchall()
-        return {"splits": [dict(row) for row in splits], "captions": {"total": captions["total"], "mean_word_count": captions["mean_word_count"], "top_terms": [dict(row) for row in terms]}}
+            aspect_ratio_bins = connection.execute("""
+                SELECT 'portrait' AS name, COUNT(*) AS sample_count FROM samples WHERE aspect_ratio < 1
+                UNION ALL
+                SELECT 'square' AS name, COUNT(*) AS sample_count FROM samples WHERE aspect_ratio = 1
+                UNION ALL
+                SELECT 'landscape' AS name, COUNT(*) AS sample_count FROM samples WHERE aspect_ratio > 1
+            """).fetchall()
+        return {
+            "splits": [dict(row) for row in splits],
+            "captions": {"total": captions["total"], "mean_word_count": captions["mean_word_count"], "top_terms": [dict(row) for row in terms]},
+            "aspect_ratio_bins": [dict(row) for row in aspect_ratio_bins],
+        }
 
     def detail(self, sample_id: str) -> dict | None:
         with connect(self.data_dir) as connection:

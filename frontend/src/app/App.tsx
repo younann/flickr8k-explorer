@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getSample, getSamples, type Sample, type SampleDetail } from "../api";
+import { parseGalleryQuery, withGalleryQuery } from "../features/gallery/query";
 import "../styles.css";
 
 function Header() {
@@ -13,14 +14,30 @@ function Overview() {
 }
 
 function Gallery() {
-  const location = useLocation(); const navigate = useNavigate();
-  const query = new URLSearchParams(location.search); const q = query.get("q") ?? ""; const split = query.get("split") ?? "";
-  const [input, setInput] = useState(q);
-  useEffect(() => { setInput(q); }, [q]);
-  useEffect(() => { const timer = window.setTimeout(() => { if (input !== q) { const next = new URLSearchParams(location.search); input ? next.set("q", input) : next.delete("q"); navigate(`/gallery?${next}`, { replace: true }); } }, 300); return () => window.clearTimeout(timer); }, [input, q, location.search, navigate]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const galleryQuery = parseGalleryQuery(location.search);
+  const [input, setInput] = useState(galleryQuery.q);
+  const isDebouncing = input !== galleryQuery.q;
+
+  useEffect(() => { setInput(galleryQuery.q); }, [galleryQuery.q]);
+  useEffect(() => {
+    if (!isDebouncing) return;
+    const timer = window.setTimeout(() => {
+      navigate(`/gallery${withGalleryQuery(location.search, { q: input, page: 1 })}`, { replace: true });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [input, isDebouncing, location.search, navigate]);
+
   const { data, error, isLoading, isFetching } = useQuery({ queryKey: ["samples", location.search], queryFn: () => getSamples(new URLSearchParams(location.search)), staleTime: 60_000, placeholderData: keepPreviousData });
-  function update(key: string, value: string) { const next = new URLSearchParams(location.search); value ? next.set(key, value) : next.delete(key); navigate(`/gallery?${next}`); }
-  return <main><div className="page-title"><p className="eyebrow">Browse / local index</p><h1>Contact sheet</h1><p>Search any of the five human captions. Results stay on this machine.</p></div><div className="filters"><label>Caption search<input name="q" value={input} onChange={event => setInput(event.target.value)} placeholder="dog, snow, bicycle…" /></label><label>Split<select value={split} onChange={e => update("split", e.target.value)}><option value="">All splits</option><option value="train">Train</option><option value="validation">Validation</option><option value="test">Test</option></select></label><button type="button" onClick={() => setInput("")}>Clear</button></div>{error && <p className="notice" role="alert">{error.message}</p>}{isLoading && <p className="status">Loading local index…</p>}{data && <><p className="result-count">{data.total.toLocaleString()} samples {isFetching && "· updating"}</p><div className="sample-grid">{data.items.map(sample => <Link className="sample-card" key={sample.id} to={`/samples/${sample.id}${location.search}`}><img loading="lazy" src={sample.image_url} alt={sample.caption_preview}/><span className="split-label">{sample.split}</span><p>{sample.caption_preview}</p><small>{sample.width} × {sample.height}</small></Link>)}</div>{data.items.length === 0 && <p className="status">No local samples match this query. Try fewer words or clear the split.</p>}</>}</main>;
+  function update(updates: Parameters<typeof withGalleryQuery>[1]) {
+    navigate(`/gallery${withGalleryQuery(location.search, updates)}`);
+  }
+  function clearFilters() {
+    setInput("");
+    update({ q: "", split: "", page: 1 });
+  }
+  return <main><div className="page-title"><p className="eyebrow">Browse / local index</p><h1>Contact sheet</h1><p>Search any of the five human captions. Results stay on this machine.</p></div><div className="filters"><label>Caption search<input name="q" value={input} onChange={event => setInput(event.target.value)} placeholder="dog, snow, bicycle…" /></label><label>Split<select value={galleryQuery.split} onChange={e => update({ split: e.target.value, page: 1 })}><option value="">All splits</option><option value="train">Train</option><option value="validation">Validation</option><option value="test">Test</option></select></label><button type="button" onClick={clearFilters}>Clear</button></div>{isDebouncing && <p className="status" aria-live="polite">Waiting to update search…</p>}{error && <p className="notice" role="alert">{error.message}</p>}{isLoading && <p className="status">Loading local index…</p>}{data && <><p className="result-count">{data.total.toLocaleString()} samples {isFetching && "· updating"}</p><div className="sample-grid">{data.items.map(sample => <Link className="sample-card" key={sample.id} to={`/samples/${sample.id}${location.search}`}><img loading="lazy" src={sample.image_url} alt={sample.caption_preview}/><span className="split-label">{sample.split}</span><p>{sample.caption_preview}</p><small>{sample.width} × {sample.height}</small></Link>)}</div>{data.items.length === 0 && <p className="status">No local samples match this query. Try fewer words or clear the split.</p>}<nav className="pagination" aria-label="Pagination"><button type="button" onClick={() => update({ page: data.page - 1 })} disabled={data.page <= 1}>Previous page</button><span>Page {data.page}</span><button type="button" onClick={() => update({ page: data.page + 1 })} disabled={data.page * data.page_size >= data.total}>Next page</button></nav></>}</main>;
 }
 
 function Detail() {

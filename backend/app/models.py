@@ -13,9 +13,15 @@ class HealthResponse(BaseModel):
 class OverviewResponse(BaseModel):
     splits: list["SplitSummary"]
     captions: "CaptionStats"
+    aspect_ratio_bins: list["AspectRatioBin"]
 
 
 class SplitSummary(BaseModel):
+    name: str
+    sample_count: int
+
+
+class AspectRatioBin(BaseModel):
     name: str
     sample_count: int
 

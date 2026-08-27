@@ -26,6 +26,19 @@ def test_samples_filters_by_caption_text_and_returns_a_paginated_summary(tmp_pat
     assert payload["items"][0]["width"] == 6
 
 
+def test_samples_page_two_returns_a_different_slice(tmp_path: Path):
+    client = prepared_client(tmp_path)
+
+    first_page = client.get("/api/samples", params={"page": 1, "page_size": 1})
+    second_page = client.get("/api/samples", params={"page": 2, "page_size": 1})
+
+    assert first_page.status_code == 200
+    assert second_page.status_code == 200
+    assert first_page.json()["items"][0]["id"] != second_page.json()["items"][0]["id"]
+    assert second_page.json()["page"] == 2
+    assert second_page.json()["page_size"] == 1
+
+
 def test_sample_detail_and_image_endpoint_return_local_imported_content(tmp_path: Path):
     client = prepared_client(tmp_path)
     sample_id = client.get("/api/samples", params={"q": "rests"}).json()["items"][0]["id"]
@@ -47,6 +60,22 @@ def test_overview_reports_local_split_and_caption_distribution(tmp_path: Path):
     assert response.status_code == 200
     assert response.json()["splits"] == [{"name": "train", "sample_count": 2}]
     assert response.json()["captions"]["total"] == 10
+
+
+def test_overview_reports_aspect_ratio_bins_that_total_all_samples(tmp_path: Path):
+    client = prepared_client(tmp_path)
+
+    response = client.get("/api/overview")
+
+    assert response.status_code == 200
+    bins = response.json()["aspect_ratio_bins"]
+    assert [bin["name"] for bin in bins] == ["portrait", "square", "landscape"]
+    assert sum(bin["sample_count"] for bin in bins) == 2
+    assert bins == [
+        {"name": "portrait", "sample_count": 0},
+        {"name": "square", "sample_count": 0},
+        {"name": "landscape", "sample_count": 2},
+    ]
 
 
 def test_missing_data_response_uses_the_documented_error_contract(tmp_path: Path):
