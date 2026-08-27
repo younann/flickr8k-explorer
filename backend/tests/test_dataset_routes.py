@@ -47,3 +47,34 @@ def test_overview_reports_local_split_and_caption_distribution(tmp_path: Path):
     assert response.status_code == 200
     assert response.json()["splits"] == [{"name": "train", "sample_count": 2}]
     assert response.json()["captions"]["total"] == 10
+
+
+def test_missing_data_response_uses_the_documented_error_contract(tmp_path: Path):
+    client = TestClient(create_app(data_dir=tmp_path))
+
+    response = client.get("/api/overview")
+    openapi = client.get("/openapi.json").json()
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "Dataset is not imported. Run python scripts/import_dataset.py --download."
+    }
+    assert openapi["paths"]["/api/overview"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/OverviewResponse"
+    }
+    assert openapi["paths"]["/api/overview"]["get"]["responses"]["409"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ErrorResponse"
+    }
+
+
+def test_sample_routes_declare_typed_response_models(tmp_path: Path):
+    client = TestClient(create_app(data_dir=tmp_path))
+
+    paths = client.get("/openapi.json").json()["paths"]
+
+    assert paths["/api/samples"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/SamplePage"
+    }
+    assert paths["/api/samples/{sample_id}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/SampleDetailResponse"
+    }

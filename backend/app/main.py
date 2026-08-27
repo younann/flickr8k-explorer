@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import default_data_dir
+from app.models import HealthResponse
 from app.repository import DatasetRepository
 from app.routes import dataset_router
 
@@ -22,12 +23,12 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     repository = DatasetRepository(resolved_data_dir)
     app.include_router(dataset_router(repository))
 
-    @app.get("/api/health")
-    def health() -> dict[str, str | bool]:
-        return {
+    @app.get("/api/health", response_model=HealthResponse)
+    def health() -> HealthResponse:
+        return HealthResponse(**{
             "status": "ok",
             "dataset_ready": repository.ready,
-        }
+        })
 
     return app
 

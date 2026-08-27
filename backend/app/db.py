@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+import re
 
 
 def database_path(data_dir: Path) -> Path:
@@ -16,5 +17,48 @@ def connect(data_dir: Path) -> sqlite3.Connection:
 
 
 def initialize(connection: sqlite3.Connection) -> None:
-    schema_path = Path(__file__).resolve().parents[1] / "schema.sql"
-    connection.executescript(schema_path.read_text())
+    connection.execute(
+        """CREATE TABLE IF NOT EXISTS schema_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+        )"""
+    )
+    applied_versions = {
+        row[0] for row in connection.execute("SELECT version FROM schema_migrations")
+    }
+
+    migrations: list[tuple[int, Path]] = []
+    for path in (Path(__file__).parent / "migrations").glob("*.sql"):
+        match = re.match(r"^(\d+)_.*\.sql$", path.name)
+        if match:
+            migrations.append((int(match.group(1)), path))
+    migrations.sort(key=lambda migration: migration[0])
+
+    for version, path in migrations:
+        if version in applied_versions:
+            continue
+        savepoint = f"migration_{version}"
+        connection.execute(f"SAVEPOINT {savepoint}")
+        try:
+            _execute_sql_script(connection, path.read_text())
+            connection.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (?, CURRENT_TIMESTAMP)",
+                (version,),
+            )
+        except Exception:
+            connection.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+            connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+            raise
+        else:
+            connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+
+
+def _execute_sql_script(connection: sqlite3.Connection, script: str) -> None:
+    statement = ""
+    for line in script.splitlines(keepends=True):
+        statement += line
+        if sqlite3.complete_statement(statement):
+            connection.execute(statement)
+            statement = ""
+    if statement.strip():
+        connection.execute(statement)
