@@ -1,0 +1,88 @@
+.overview-metrics {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.65fr) 1fr;
+  gap: 26px;
+  max-width: 950px;
+  margin: 0 0 34px;
+  padding: 18px 0;
+  border-top: 1px solid #ccd3df;
+  border-bottom: 1px solid #ccd3df;
+}
+
+.overview-metrics p {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.overview-metrics b {
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
+
+.overview-metrics span,
+.aspect-ratio {
+  color: #66718d;
+  font: 0.72rem ui-monospace, monospace;
+}
+
+.overview-metrics h2,
+.aspect-ratios h2 {
+  margin: 0;
+  color: #53607c;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.overview-metrics ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overview-metrics a {
+  display: block;
+  padding: 6px 8px;
+  background: #fff;
+  color: #17203a;
+  font: 0.75rem ui-monospace, monospace;
+  text-decoration: none;
+}
+
+.overview-metrics a:hover {
+  color: #dc5133;
+}
+
+.aspect-ratios {
+  max-width: 950px;
+  margin: 0 0 46px;
+}
+
+.aspect-ratio {
+  display: grid;
+  grid-template-columns: 175px 1fr;
+  gap: 14px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.aspect-ratio i {
+  display: block;
+  min-width: 2px;
+  height: 10px;
+  background: #9fd4f2;
+}
+
+@media (max-width: 720px) {
+  .overview-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .aspect-ratio {
+    grid-template-columns: 120px 1fr;
+  }
+}
