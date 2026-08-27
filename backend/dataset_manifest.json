@@ -1,0 +1,16 @@
+{
+  "repository": "jxie/flickr8k",
+  "revision": "0d1637bc05e59ed46e19f71796497a1c85c36c33",
+  "splits": {
+    "train": [
+      "data/train-00000-of-00002-2f8f6bfa852eac4b.parquet",
+      "data/train-00001-of-00002-2173151d8cd6c7fb.parquet"
+    ],
+    "validation": [
+      "data/validation-00000-of-00001-7025a2b596f14b7b.parquet"
+    ],
+    "test": [
+      "data/test-00000-of-00001-42a2661d12c73e48.parquet"
+    ]
+  }
+}

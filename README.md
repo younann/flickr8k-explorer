@@ -26,7 +26,20 @@ cd backend && uv run python -m scripts.import_dataset --download && cd ..
 bash ./scripts/dev.sh
 ```
 
-Open `http://localhost:5173`. The initial import is the only operation that contacts Hugging Face. It downloads the current dataset shards once into `data/raw/`; later runs use only local files. Set `FLICKR8K_DATA_DIR=/absolute/path` before import and backend startup to place all dataset files elsewhere.
+Open `http://localhost:5173`. The initial import is the only operation that contacts Hugging Face. It downloads the manifest-pinned dataset shards once into `data/raw/`; later application runs use only local files. Set `FLICKR8K_DATA_DIR=/absolute/path` before import and backend startup to place all dataset files elsewhere.
+
+## Dataset manifest
+
+`backend/dataset_manifest.json` is the single checked-in source for the Hugging Face repository, immutable revision, and Parquet files assigned to each split. The importer downloads only those declared files and passes the manifest revision to Hugging Face; the API and browser never contact Hugging Face after an import.
+
+To update the dataset, change the manifest in one review: choose an immutable repository revision, list every required Parquet filename under its split, and keep each filename unique within that split. Validate the change before importing it into a new local data directory:
+
+```bash
+cd backend && uv run pytest tests/test_manifest.py -v
+FLICKR8K_DATA_DIR=/absolute/path/to/new-data uv run python -m scripts.import_dataset --download
+```
+
+Use `uv run python -m scripts.import_dataset --help` to inspect the command without downloading any data.
 
 To run in two terminals instead:
 

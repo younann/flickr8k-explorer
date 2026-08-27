@@ -4,24 +4,51 @@ import argparse
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import default_data_dir
 from app.importer import import_shards
 
-SHARDS = {
-    "train": ["data/train-00000-of-00002-2f8f6bfa852eac4b.parquet", "data/train-00001-of-00002-2173151d8cd6c7fb.parquet"],
-    "validation": ["data/validation-00000-of-00001-7025a2b596f14b7b.parquet"],
-    "test": ["data/test-00000-of-00001-42a2661d12c73e48.parquet"],
-}
+MANIFEST_PATH = Path(__file__).resolve().parents[1] / "dataset_manifest.json"
 
 
-def download_shards(raw_dir: Path) -> dict[str, list[Path]]:
+class DatasetManifest(BaseModel):
+    repository: str = Field(min_length=1)
+    revision: str = Field(min_length=1)
+    splits: dict[str, list[str]] = Field(min_length=1)
+
+    @field_validator("splits")
+    @classmethod
+    def validate_unique_filenames(cls, splits: dict[str, list[str]]) -> dict[str, list[str]]:
+        for split, filenames in splits.items():
+            if not split:
+                raise ValueError("split names must not be empty")
+            if not filenames:
+                raise ValueError(f"split {split!r} must declare at least one filename")
+            duplicates = {filename for filename in filenames if filenames.count(filename) > 1}
+            if duplicates:
+                duplicate_list = ", ".join(sorted(duplicates))
+                raise ValueError(f"duplicate filenames declared for split {split!r}: {duplicate_list}")
+        return splits
+
+
+def load_manifest(path: Path) -> DatasetManifest:
+    return DatasetManifest.model_validate_json(path.read_text())
+
+
+def download_shards(manifest: DatasetManifest, raw_dir: Path) -> dict[str, list[Path]]:
     raw_dir.mkdir(parents=True, exist_ok=True)
     result: dict[str, list[Path]] = {}
-    for split, filenames in SHARDS.items():
+    for split, filenames in manifest.splits.items():
         result[split] = []
         for filename in filenames:
-            downloaded = hf_hub_download("jxie/flickr8k", filename=filename, repo_type="dataset", local_dir=raw_dir)
+            downloaded = hf_hub_download(
+                repo_id=manifest.repository,
+                filename=filename,
+                repo_type="dataset",
+                revision=manifest.revision,
+                local_dir=raw_dir,
+            )
             result[split].append(Path(downloaded))
     return result
 
@@ -34,7 +61,8 @@ def main() -> None:
     raw_dir = arguments.data_dir / "raw"
     if not arguments.download:
         raise SystemExit("Pass --download to fetch the dataset into the selected local data directory.")
-    report = import_shards(download_shards(raw_dir), arguments.data_dir)
+    manifest = load_manifest(MANIFEST_PATH)
+    report = import_shards(download_shards(manifest, raw_dir), arguments.data_dir)
     print(f"Imported {report.samples_imported} samples and {report.captions_imported} captions into {arguments.data_dir}")
 
 
