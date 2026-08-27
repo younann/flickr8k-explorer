@@ -33,7 +33,7 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
             raise HTTPException(status_code=404, detail="Sample not found")
         return SampleDetailResponse(sample=sample, neighbors={"previous_id": None, "next_id": None})
 
-    @router.get("/samples/{sample_id}/image")
+    @router.get("/samples/{sample_id}/image", responses=errors)
     def sample_image(sample_id: str) -> FileResponse:
         require_data()
         image = repository.image(sample_id)

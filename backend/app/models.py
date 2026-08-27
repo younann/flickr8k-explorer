@@ -11,8 +11,24 @@ class HealthResponse(BaseModel):
 
 
 class OverviewResponse(BaseModel):
-    splits: list[dict]
-    captions: dict
+    splits: list["SplitSummary"]
+    captions: "CaptionStats"
+
+
+class SplitSummary(BaseModel):
+    name: str
+    sample_count: int
+
+
+class TermCount(BaseModel):
+    term: str
+    count: int
+
+
+class CaptionStats(BaseModel):
+    total: int
+    mean_word_count: float
+    top_terms: list[TermCount]
 
 
 class SampleSummary(BaseModel):
@@ -43,4 +59,9 @@ class SampleDetail(BaseModel):
 
 class SampleDetailResponse(BaseModel):
     sample: SampleDetail
-    neighbors: dict[str, str | None]
+    neighbors: "Neighbors"
+
+
+class Neighbors(BaseModel):
+    previous_id: str | None
+    next_id: str | None
