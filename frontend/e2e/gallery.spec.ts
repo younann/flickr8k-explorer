@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+test("presents pagination as a styled control bar", async ({ page }) => {
+  await page.goto("/gallery");
+
+  const pagination = page.getByRole("navigation", { name: "Pagination" });
+  await expect(pagination).toHaveCSS("display", "flex");
+  await expect(page.getByRole("button", { name: "Next page" })).toHaveCSS("background-color", "rgb(23, 32, 58)");
+});
+
 test("searches fixture samples, returns from detail, paginates, and shows an empty state", async ({ page }) => {
   await page.goto("/gallery");
 
