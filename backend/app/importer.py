@@ -10,6 +10,7 @@ from typing import Iterable
 import pyarrow.parquet as pq
 from PIL import Image
 
+from app.analysis import caption_analysis, perceptual_hash
 from app.db import connect, initialize
 
 CAPTION_COLUMNS = tuple(f"caption_{index}" for index in range(5))
@@ -62,9 +63,14 @@ def import_shards(shards_by_split: dict[str, Iterable[Path]], data_dir: Path) ->
                             width, height = image.size
                             extension = _image_extension(image, original_path)
                             media_type = mimetypes.types_map.get(extension, "application/octet-stream")
+                            image_hash = f"{perceptual_hash(image):016x}"
                         image_path = images_dir / f"{sample_id}{extension}"
                         if not image_path.exists():
                             image_path.write_bytes(image_bytes)
+                        captions = [
+                            (sample_id, position, str(row[column]).strip(), len(str(row[column]).split()))
+                            for position, column in enumerate(CAPTION_COLUMNS)
+                        ]
                         inserted = connection.execute(
                             """INSERT OR IGNORE INTO samples
                             (id, split, source_shard, source_row, image_path, media_type, width, height, aspect_ratio)
@@ -73,10 +79,31 @@ def import_shards(shards_by_split: dict[str, Iterable[Path]], data_dir: Path) ->
                         ).rowcount
                         if inserted:
                             samples_imported += 1
-                            captions = [(sample_id, position, str(row[column]).strip(), len(str(row[column]).split())) for position, column in enumerate(CAPTION_COLUMNS)]
-                            connection.executemany("INSERT INTO captions (sample_id, position, text, word_count) VALUES (?, ?, ?, ?)", captions)
-                            connection.executemany("INSERT INTO caption_search (sample_id, text) VALUES (?, ?)", [(sample_id, caption[2]) for caption in captions])
+                            connection.executemany(
+                                "INSERT INTO captions (sample_id, position, text, word_count) VALUES (?, ?, ?, ?)",
+                                captions,
+                            )
+                            connection.executemany(
+                                "INSERT INTO caption_search (sample_id, text) VALUES (?, ?)",
+                                [(sample_id, caption[2]) for caption in captions],
+                            )
                             captions_imported += len(captions)
+                        analysis = caption_analysis([caption[2] for caption in captions])
+                        connection.execute(
+                            """INSERT OR REPLACE INTO sample_analysis
+                            (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
+                             mean_caption_length, caption_length_spread, perceptual_hash)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                            (
+                                sample_id,
+                                analysis.disagreement_score,
+                                analysis.token_disagreement,
+                                analysis.vocabulary_diversity,
+                                analysis.mean_caption_length,
+                                analysis.caption_length_spread,
+                                image_hash,
+                            ),
+                        )
                         source_row += 1
         connection.commit()
     finally:
