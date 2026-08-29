@@ -6,8 +6,9 @@ A local-first visual inspection tool for the Flickr8k image-caption dataset. It 
 
 - Imports Flickr8k Parquet shards into local SQLite and writes images to the local `data/images/` cache.
 - Searches all five human captions with SQLite FTS5 and filters by dataset split.
-- Shows a responsive contact sheet and a focused image inspector with all five captions, original dimensions, and aspect ratio.
-- Runs entirely on one machine after the initial dataset import. The browser application only calls the local FastAPI server.
+- Shows a responsive contact sheet with URL-shareable caption, split, page, and page-size filters, plus a focused image inspector with all five captions, original dimensions, and aspect ratio.
+- Displays an overview of local split totals, caption length and frequent terms, and portrait/square/landscape image distribution.
+- Runs entirely on one machine after the initial dataset import. The browser application only calls the local FastAPI server; it makes no Hugging Face, cloud database, hosted-search, or model-inference requests at runtime.
 
 ## Requirements
 
@@ -28,6 +29,8 @@ bash ./scripts/dev.sh
 
 Open `http://localhost:5173`. The initial import is the only operation that contacts Hugging Face. It downloads the manifest-pinned dataset shards once into `data/raw/`; later application runs use only local files. Set `FLICKR8K_DATA_DIR=/absolute/path` before import and backend startup to place all dataset files elsewhere.
 
+`scripts/dev.sh` starts the local FastAPI server and Vite development server together. Stop it with `Ctrl-C`; it shuts down both child processes. A fresh checkout needs the import above before the API can serve dataset endpoints.
+
 ## Dataset manifest
 
 `backend/dataset_manifest.json` is the single checked-in source for the Hugging Face repository, immutable revision, and Parquet files assigned to each split. The importer downloads only those declared files and passes the manifest revision to Hugging Face; the API and browser never contact Hugging Face after an import.
@@ -40,6 +43,16 @@ FLICKR8K_DATA_DIR=/absolute/path/to/new-data uv run python -m scripts.import_dat
 ```
 
 Use `uv run python -m scripts.import_dataset --help` to inspect the command without downloading any data.
+
+## SQLite migrations
+
+The local database schema is managed by numbered SQL files in `backend/app/migrations/`. On startup, the backend records successfully applied versions in `schema_migrations` and applies every new migration once. Migrations are forward-only and idempotent, so an existing local import remains usable when the application is updated.
+
+For a data-model change, add the next numbered SQL migration, keep it safe for an existing database, and verify it before release:
+
+```bash
+cd backend && uv run pytest tests/test_migrations.py -v
+```
 
 To run in two terminals instead:
 
@@ -58,11 +71,12 @@ React/Vite SPA <--- local HTTP JSON/image bytes <--- FastAPI <-------+
 
 `backend/app/importer.py` owns Parquet ingestion; `repository.py` owns parameterized SQLite reads; `routes.py` owns HTTP behavior. The React client is intentionally a small feature-oriented UI that consumes those local endpoints.
 
-## Test and build
+## Local quality gates
 
 ```bash
 cd backend && uv run pytest -v
-cd frontend && npm test -- --run && npm run build
+cd frontend && npm test -- --run
+cd frontend && npm run build
 ```
 
 Browser checks use a generated 31-sample fixture dataset and never download Flickr8k. Install the Playwright browser once, then run the local E2E and accessibility gates:
@@ -75,6 +89,16 @@ npm run test:a11y
 ```
 
 Each command creates `frontend/e2e/fixtures/data/` through the existing importer, starts a fixture-only FastAPI server and Vite, and runs at desktop and 375px viewport widths.
+
+For a release-style check from a clean checkout, run all five commands in order after installing dependencies and Chromium:
+
+```bash
+cd backend && uv run pytest -v
+cd frontend && npm test -- --run
+cd frontend && npm run build
+cd frontend && npm run test:e2e
+cd frontend && npm run test:a11y
+```
 
 ## Scope and trade-offs
 
