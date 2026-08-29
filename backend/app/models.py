@@ -180,6 +180,7 @@ class ExportFinding(BaseModel):
     vocabulary_diversity: float
     mean_caption_length: float
     caption_length_spread: float
+    perceptual_hash: str
 
 
 class CollectionExportResponse(BaseModel):

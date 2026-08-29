@@ -20,7 +20,9 @@ class DatasetRepository:
     def ready(self) -> bool:
         return database_path(self.data_dir).is_file()
 
-    def samples(self, *, query: str = "", split: str | None = None, page: int = 1, page_size: int = 30) -> dict:
+    def samples(
+        self, *, query: str = "", split: str | None = None, sort: str = "default", page: int = 1, page_size: int = 30
+    ) -> dict:
         where = []
         parameters: list[object] = []
         join = ""
@@ -31,12 +33,14 @@ class DatasetRepository:
             where.append("samples.split = ?")
             parameters.append(split)
         condition = f" WHERE {' AND '.join(where)}" if where else ""
+        analysis_join = " LEFT JOIN sample_analysis ON sample_analysis.sample_id = samples.id" if sort == "disagreement" else ""
+        order = "sample_analysis.disagreement_score DESC, samples.id" if sort == "disagreement" else "samples.source_shard, samples.source_row"
         with connect(self.data_dir) as connection:
             total = connection.execute(f"SELECT COUNT(*) FROM samples{join}{condition}", parameters).fetchone()[0]
             rows = connection.execute(
                 f"""SELECT samples.id, samples.split, samples.width, samples.height, captions.text
-                FROM samples{join} JOIN captions ON captions.sample_id = samples.id AND captions.position = 0
-                {condition} ORDER BY samples.source_shard, samples.source_row LIMIT ? OFFSET ?""",
+                FROM samples{join}{analysis_join} JOIN captions ON captions.sample_id = samples.id AND captions.position = 0
+                {condition} ORDER BY {order} LIMIT ? OFFSET ?""",
                 [*parameters, page_size, (page - 1) * page_size],
             ).fetchall()
         return {
@@ -249,7 +253,7 @@ class DatasetRepository:
                 """SELECT findings.*, samples.split, samples.width, samples.height,
                     sample_analysis.disagreement_score, sample_analysis.token_disagreement,
                     sample_analysis.vocabulary_diversity, sample_analysis.mean_caption_length,
-                    sample_analysis.caption_length_spread
+                    sample_analysis.caption_length_spread, sample_analysis.perceptual_hash
                     FROM findings JOIN samples ON samples.id = findings.sample_id
                     JOIN sample_analysis ON sample_analysis.sample_id = findings.sample_id
                     WHERE findings.collection_id = ? ORDER BY findings.created_at DESC, findings.id DESC""",
@@ -265,7 +269,7 @@ class DatasetRepository:
                     "captions": [caption["text"] for caption in captions],
                     "disagreement_score": row["disagreement_score"], "token_disagreement": row["token_disagreement"],
                     "vocabulary_diversity": row["vocabulary_diversity"], "mean_caption_length": row["mean_caption_length"],
-                    "caption_length_spread": row["caption_length_spread"],
+                    "caption_length_spread": row["caption_length_spread"], "perceptual_hash": row["perceptual_hash"],
                 }})
         return exported
 

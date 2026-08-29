@@ -1,7 +1,10 @@
+import csv
+from io import StringIO
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.db import connect
 from app.importer import import_shards
 from app.main import create_app
 from tests.fixtures import write_fixture_shard
@@ -42,6 +45,57 @@ def test_analysis_and_visually_close_samples_use_local_hashes(tmp_path: Path):
     )
 
 
+def test_similar_samples_caps_tied_hashes_and_uses_sample_id_as_tiebreaker(tmp_path: Path):
+    client = prepared_client(tmp_path)
+    data_dir = tmp_path / "data"
+    existing_ids = [item["id"] for item in client.get("/api/samples").json()["items"]]
+    selected_id, other_id = existing_ids
+    with connect(data_dir) as connection:
+        connection.execute("UPDATE sample_analysis SET perceptual_hash = ? WHERE sample_id = ?", ("0000000000000000", selected_id))
+        connection.execute("UPDATE sample_analysis SET perceptual_hash = ? WHERE sample_id = ?", ("ffffffffffffffff", other_id))
+        for index in range(7):
+            sample_id = f"candidate-{index}"
+            connection.execute(
+                """INSERT INTO samples (id, split, source_shard, source_row, image_path, media_type, width, height, aspect_ratio)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (sample_id, "train", "ties.parquet", index, "unused.png", "image/png", 4, 3, 4 / 3),
+            )
+            connection.execute(
+                "INSERT INTO captions (sample_id, position, text, word_count) VALUES (?, ?, ?, ?)",
+                (sample_id, 0, "A tied candidate.", 3),
+            )
+            connection.execute(
+                """INSERT INTO sample_analysis
+                    (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
+                    mean_caption_length, caption_length_spread, perceptual_hash)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (sample_id, 0, 0, 0, 0, 0, "0000000000000000"),
+            )
+        connection.commit()
+
+    response = client.get(f"/api/samples/{selected_id}/similar?limit=6")
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [f"candidate-{index}" for index in range(6)]
+    assert all(item["distance"] == 0 for item in response.json()["items"])
+
+
+def test_samples_can_sort_by_disagreement_without_changing_existing_filters(tmp_path: Path):
+    client = prepared_client(tmp_path)
+    data_dir = tmp_path / "data"
+    source_order = [item["id"] for item in client.get("/api/samples", params={"q": "dog", "split": "train"}).json()["items"]]
+    with connect(data_dir) as connection:
+        connection.execute("UPDATE sample_analysis SET disagreement_score = ? WHERE sample_id = ?", (0, source_order[0]))
+        connection.execute("UPDATE sample_analysis SET disagreement_score = ? WHERE sample_id = ?", (100, source_order[1]))
+        connection.commit()
+
+    response = client.get("/api/samples", params={"q": "dog", "split": "train", "sort": "disagreement"})
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert [item["id"] for item in response.json()["items"]] == list(reversed(source_order))
+
+
 def test_collection_finding_can_be_created_and_exported(tmp_path: Path):
     client = prepared_client(tmp_path)
     sample_id = client.get("/api/samples").json()["items"][0]["id"]
@@ -61,9 +115,17 @@ def test_collection_finding_can_be_created_and_exported(tmp_path: Path):
     assert exported.headers["content-disposition"] == 'attachment; filename="ambiguity.json"'
     assert exported.json()["findings"][0]["note"] == "Different verbs"
     assert exported.json()["findings"][0]["captions"][0] == "A blue dog runs."
+    assert exported.json()["collection"]["created_at"]
+    assert exported.json()["collection"]["updated_at"]
+    assert len(exported.json()["findings"][0]["perceptual_hash"]) == 16
     assert csv_export.status_code == 200
     assert csv_export.headers["content-disposition"] == 'attachment; filename="ambiguity.csv"'
-    assert "Different verbs" in csv_export.text
+    csv_row = next(csv.DictReader(StringIO(csv_export.text)))
+    json_finding = exported.json()["findings"][0]
+    assert csv_row["collection_created_at"] == exported.json()["collection"]["created_at"]
+    assert csv_row["collection_updated_at"] == exported.json()["collection"]["updated_at"]
+    assert csv_row["perceptual_hash"] == json_finding["perceptual_hash"]
+    assert csv_row["caption_length_spread"] == str(json_finding["caption_length_spread"])
 
 
 def test_missing_resources_and_invalid_write_payloads_use_http_errors(tmp_path: Path):

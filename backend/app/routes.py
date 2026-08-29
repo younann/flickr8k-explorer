@@ -45,9 +45,12 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
         return OverviewResponse(**repository.overview())
 
     @router.get("/samples", response_model=SamplePage, responses=errors)
-    def samples(q: str = "", split: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=100)) -> SamplePage:
+    def samples(
+        q: str = "", split: str | None = None, sort: Literal["default", "disagreement"] = "default",
+        page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=100),
+    ) -> SamplePage:
         require_data()
-        return SamplePage(**repository.samples(query=q, split=split, page=page, page_size=page_size))
+        return SamplePage(**repository.samples(query=q, split=split, sort=sort, page=page, page_size=page_size))
 
     @router.get("/samples/{sample_id}", response_model=SampleDetailResponse, responses=errors)
     def sample_detail(sample_id: str) -> SampleDetailResponse:
@@ -162,9 +165,10 @@ def _export_filename(name: str) -> str:
 
 def _csv_rows(export: CollectionExportResponse) -> Iterator[str]:
     fields = [
-        "finding_id", "collection_id", "collection_name", "sample_id", "tags", "note", "created_at", "updated_at",
+        "finding_id", "collection_id", "collection_name", "collection_created_at", "collection_updated_at",
+        "sample_id", "tags", "note", "created_at", "updated_at",
         "split", "width", "height", "captions", "disagreement_score", "token_disagreement", "vocabulary_diversity",
-        "mean_caption_length", "caption_length_spread",
+        "mean_caption_length", "caption_length_spread", "perceptual_hash",
     ]
     buffer = StringIO()
     writer = csv.DictWriter(buffer, fieldnames=fields)
@@ -175,11 +179,12 @@ def _csv_rows(export: CollectionExportResponse) -> Iterator[str]:
         buffer.truncate(0)
         writer.writerow({
             "finding_id": finding.id, "collection_id": finding.collection_id, "collection_name": export.collection.name,
+            "collection_created_at": export.collection.created_at, "collection_updated_at": export.collection.updated_at,
             "sample_id": finding.sample_id, "tags": json.dumps(finding.tags), "note": finding.note,
             "created_at": finding.created_at, "updated_at": finding.updated_at, "split": finding.split,
             "width": finding.width, "height": finding.height, "captions": json.dumps(finding.captions),
             "disagreement_score": finding.disagreement_score, "token_disagreement": finding.token_disagreement,
             "vocabulary_diversity": finding.vocabulary_diversity, "mean_caption_length": finding.mean_caption_length,
-            "caption_length_spread": finding.caption_length_spread,
+            "caption_length_spread": finding.caption_length_spread, "perceptual_hash": finding.perceptual_hash,
         })
         yield buffer.getvalue()
