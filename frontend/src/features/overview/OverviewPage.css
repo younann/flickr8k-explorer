@@ -22,7 +22,7 @@
 
 .overview-metrics span,
 .aspect-ratio {
-  color: #66718d;
+  color: #616b84;
   font: 0.72rem ui-monospace, monospace;
 }
 
@@ -54,7 +54,7 @@
 }
 
 .overview-metrics a:hover {
-  color: #dc5133;
+  color: #b43d26;
 }
 
 .aspect-ratios {

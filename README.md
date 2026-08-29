@@ -65,6 +65,17 @@ cd backend && uv run pytest -v
 cd frontend && npm test -- --run && npm run build
 ```
 
+Browser checks use a generated 31-sample fixture dataset and never download Flickr8k. Install the Playwright browser once, then run the local E2E and accessibility gates:
+
+```bash
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+npm run test:a11y
+```
+
+Each command creates `frontend/e2e/fixtures/data/` through the existing importer, starts a fixture-only FastAPI server and Vite, and runs at desktop and 375px viewport widths.
+
 ## Scope and trade-offs
 
 The first version favors transparent, dependable retrieval: SQLite FTS5 searches the human captions locally and produces explainable results. It does not include embeddings, semantic/image similarity, model inference, accounts, annotations, or cloud infrastructure. Those capabilities can be added behind the existing sample IDs and repository boundary without changing the local data contract.
