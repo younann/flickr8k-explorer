@@ -1,4 +1,4 @@
-import type { OverviewResponse, SampleDetail, SampleDetailResponse, SamplePage } from "./types";
+import type { OverviewResponse, RadarResponse, SampleDetail, SampleDetailResponse, SamplePage } from "./types";
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -26,6 +26,11 @@ async function getJson<T>(path: string): Promise<T> {
 
 export function getOverview(): Promise<OverviewResponse> {
   return getJson<OverviewResponse>("/api/overview");
+}
+
+export function getRadar(params: URLSearchParams): Promise<RadarResponse> {
+  const query = params.toString();
+  return getJson<RadarResponse>(`/api/radar${query ? `?${query}` : ""}`);
 }
 
 export function getSamples(params: URLSearchParams): Promise<SamplePage> {
