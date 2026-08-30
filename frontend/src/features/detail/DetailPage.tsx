@@ -38,6 +38,6 @@ export function DetailPage() {
       <section className="captions"><p className="eyebrow">Five human captions</p><h1>Read the annotation set</h1><p>Use the local evidence below to distinguish wording variation from image-level near-duplicates.</p></section>
     </div>
     <AnalysisPanel analysis={analysis} captions={sample.captions} neighbors={neighbors} />
-    <SaveFindingForm sampleId={sample.id} collections={collections} />
+    <SaveFindingForm sampleId={sample.id} collections={collections} onCollectionCreated={collection => setCollections(current => [...current, collection])} />
   </main>;
 }

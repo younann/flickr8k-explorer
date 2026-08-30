@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { deleteFinding, getCollections, getFindings } from "../../api/client";
+import { createCollection, deleteFinding, getCollections, getFindings } from "../../api/client";
 import type { Collection, Finding } from "../../api/types";
 import { Feedback } from "../../components/Feedback";
 
@@ -10,6 +10,7 @@ export function CollectionsPage() {
   const [collections, setCollections] = useState<CollectionWithFindings[] | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [status, setStatus] = useState("");
+  const [collectionName, setCollectionName] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -34,10 +35,24 @@ export function CollectionsPage() {
     }
   }
 
+  async function createLocalCollection(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("");
+    try {
+      const collection = await createCollection({ name: collectionName.trim() });
+      setCollections(current => [{ ...collection, findings: [] }, ...(current ?? [])]);
+      setCollectionName("");
+      setStatus(`Created ${collection.name}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not create collection.");
+    }
+  }
+
   if (error) return <main><Feedback error={error} /></main>;
   return <main className="collections-page">
     <div className="page-title"><p className="eyebrow">Local research notes</p><h1>Collections</h1><p>Keep evidence-backed findings on this device, then export a collection for the next stage of analysis.</p></div>
     {collections === null && <p className="status">Loading collections…</p>}
+    <form className="collection-create" onSubmit={createLocalCollection}><label>New collection name<input value={collectionName} onChange={event => setCollectionName(event.target.value)} required maxLength={80} /></label><button type="submit">Create collection</button></form>
     <p className="save-status" role="status" aria-live="polite">{status}</p>
     {collections?.map(collection => <section className="collection-card" key={collection.id} aria-labelledby={`collection-${collection.id}`}>
       <div className="collection-heading"><div><p className="eyebrow">{collection.finding_count} saved findings</p><h2 id={`collection-${collection.id}`}>{collection.name}</h2></div><div className="collection-actions"><a href={`/api/collections/${collection.id}/export?format=csv`}>Export CSV</a><a href={`/api/collections/${collection.id}/export?format=json`}>Export JSON</a></div></div>

@@ -18,6 +18,15 @@ def test_caption_analysis_rewards_different_caption_vocabularies():
     assert varied.disagreement_score > repeated.disagreement_score
 
 
+def test_caption_analysis_includes_vocabulary_diversity_in_the_score():
+    low_diversity = caption_analysis(["dog dog", "dog dog", "dog dog", "cat cat", "cat cat"])
+    high_diversity = caption_analysis(["dog", "dog", "dog", "cat", "cat"])
+
+    assert high_diversity.token_disagreement == low_diversity.token_disagreement
+    assert high_diversity.vocabulary_diversity > low_diversity.vocabulary_diversity
+    assert high_diversity.disagreement_score > low_diversity.disagreement_score
+
+
 def test_hamming_distance_counts_changed_bits():
     assert hamming_distance(0b1010, 0b1111) == 2
 

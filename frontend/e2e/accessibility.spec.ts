@@ -6,10 +6,10 @@ async function expectNoSeriousOrCriticalViolations(page: Page) {
   expect(results.violations.filter(({ impact }) => impact === "serious" || impact === "critical")).toEqual([]);
 }
 
-for (const path of ["/", "/gallery?q=dog&sort=disagreement", "/radar"]) {
+for (const path of ["/", "/gallery?q=dog&sort=disagreement", "/radar", "/collections"]) {
   test(`has no serious or critical accessibility violations on ${path}`, async ({ page }) => {
     await page.goto(path);
-    await expect(path === "/radar" ? page.getByRole("heading", { name: "Research Radar" }) : page.getByText(path === "/" ? "155 captions" : "31 samples")).toBeVisible();
+    await expect(path === "/radar" ? page.getByRole("heading", { name: "Research Radar" }) : path === "/collections" ? page.getByRole("heading", { name: "Collections" }) : page.getByText(path === "/" ? "155 captions" : "31 samples")).toBeVisible();
     await expectNoSeriousOrCriticalViolations(page);
   });
 }

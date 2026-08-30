@@ -19,6 +19,7 @@ const radar = {
     mean_token_disagreement: 0.46,
     mean_vocabulary_diversity: 0.61,
   },
+  split_composition: [{ name: "train", sample_count: 24 }, { name: "validation", sample_count: 6 }],
   outliers: [{
     id: "fixture-dog-1",
     split: "train",
@@ -71,4 +72,16 @@ test("links a Radar outlier to a disagreement-filtered gallery", async () => {
 
   expect(window.location.pathname).toBe("/samples/fixture-dog-1");
   expect(window.location.search).toContain("sort=disagreement");
+});
+
+test("keeps Radar split, score, and near-duplicate filters in the URL", async () => {
+  render(<App />, { wrapper: routerAt("/radar?split=train&min_score=40&max_score=90&near_duplicates_only=true") });
+
+  expect(await screen.findByRole("combobox", { name: "Split" })).toHaveValue("train");
+  expect(screen.getByRole("spinbutton", { name: "Minimum disagreement" })).toHaveValue(40);
+  expect(screen.getByRole("spinbutton", { name: "Maximum disagreement" })).toHaveValue(90);
+  expect(screen.getByRole("checkbox", { name: "Near-duplicate signal only" })).toBeChecked();
+  fireEvent.change(screen.getByRole("combobox", { name: "Split" }), { target: { value: "validation" } });
+
+  expect(window.location.search).toBe("?split=validation&min_score=40&max_score=90&near_duplicates_only=true");
 });

@@ -51,6 +51,7 @@ export type RadarResponse = {
   distribution: ScoreBucket[];
   summary: RadarSummary;
   outliers: RadarOutlier[];
+  split_composition: SplitSummary[];
 };
 
 export type Sample = {
@@ -117,6 +118,8 @@ export type CreateFinding = {
   tags: string[];
   note: string;
 };
+
+export type CreateCollection = { name: string };
 
 type SampleDetailResponse = {
   sample: SampleDetail;

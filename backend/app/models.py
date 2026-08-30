@@ -8,6 +8,7 @@ class ErrorResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     dataset_ready: bool
+    analysis_ready: bool
 
 
 class OverviewResponse(BaseModel):
@@ -101,6 +102,7 @@ class RadarResponse(BaseModel):
     distribution: list[ScoreBucket]
     summary: RadarSummary
     outliers: list[RadarOutlier]
+    split_composition: list[SplitSummary]
 
 
 class SampleAnalysisResponse(BaseModel):

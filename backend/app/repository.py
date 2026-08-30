@@ -20,6 +20,20 @@ class DatasetRepository:
     def ready(self) -> bool:
         return database_path(self.data_dir).is_file()
 
+    @property
+    def analysis_ready(self) -> bool:
+        if not self.ready:
+            return False
+        with connect(self.data_dir) as connection:
+            table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sample_analysis'"
+            ).fetchone()
+            if table is None:
+                return False
+            sample_count = connection.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
+            analysis_count = connection.execute("SELECT COUNT(*) FROM sample_analysis").fetchone()[0]
+        return sample_count == analysis_count
+
     def samples(
         self, *, query: str = "", split: str | None = None, sort: str = "default", page: int = 1, page_size: int = 30
     ) -> dict:
@@ -93,9 +107,18 @@ class DatasetRepository:
         path = self.data_dir / "images" / row["image_path"]
         return (path, row["media_type"]) if path.is_file() else None
 
-    def radar(self, split: str | None = None) -> dict:
-        condition = " WHERE samples.split = ?" if split else ""
-        parameters: tuple[object, ...] = (split,) if split else ()
+    def radar(
+        self, *, split: str | None = None, min_score: int = 0, max_score: int = 100,
+        near_duplicates_only: bool = False,
+    ) -> dict:
+        where = ["sample_analysis.disagreement_score BETWEEN ? AND ?"]
+        parameters: list[object] = [min_score, max_score]
+        if split:
+            where.append("samples.split = ?")
+            parameters.append(split)
+        if near_duplicates_only:
+            where.append("sample_analysis.perceptual_hash IN (SELECT perceptual_hash FROM sample_analysis GROUP BY perceptual_hash HAVING COUNT(*) > 1)")
+        condition = f" WHERE {' AND '.join(where)}"
         source = "FROM sample_analysis JOIN samples ON samples.id = sample_analysis.sample_id"
         buckets = {name: 0 for name in ("0-19", "20-39", "40-59", "60-79", "80-100")}
         with connect(self.data_dir) as connection:
@@ -127,9 +150,13 @@ class DatasetRepository:
                     {condition} ORDER BY sample_analysis.disagreement_score DESC, samples.id LIMIT 10""",
                 parameters,
             ).fetchall()
+            composition = connection.execute(
+                "SELECT split AS name, COUNT(*) AS sample_count FROM samples GROUP BY split ORDER BY split"
+            ).fetchall()
         return {
             "distribution": [{"name": name, "sample_count": count} for name, count in buckets.items()],
             "summary": dict(summary),
+            "split_composition": [dict(row) for row in composition],
             "outliers": [
                 {
                     "id": row["id"], "split": row["split"], "width": row["width"], "height": row["height"],

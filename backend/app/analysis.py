@@ -37,10 +37,9 @@ def caption_analysis(captions: list[str]) -> CaptionAnalysis:
     mean_length = fmean(lengths) if lengths else 0.0
     length_spread = pstdev(lengths) if len(lengths) > 1 else 0.0
 
-    # Keep the score explainable: pairwise vocabulary disagreement is the
-    # primary signal, with unique vocabulary as a modest supporting signal.
-    normalized_spread = min(1.0, length_spread / mean_length) if mean_length else 0.0
-    score = round(100 * (0.7 * token_disagreement + 0.3 * normalized_spread))
+    # Vocabulary diversity modulates pairwise variation, so identical caption
+    # sets retain the established zero score while both agreed signals matter.
+    score = round(100 * token_disagreement * (0.7 + 0.3 * vocabulary_diversity))
     return CaptionAnalysis(
         disagreement_score=max(0, min(100, score)),
         token_disagreement=token_disagreement,

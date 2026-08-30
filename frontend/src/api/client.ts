@@ -1,4 +1,4 @@
-import type { CollectionListResponse, CreateFinding, Finding, FindingsResponse, OverviewResponse, RadarResponse, SampleAnalysis, SampleDetail, SampleDetailResponse, SamplePage, SimilarSamplesResponse } from "./types";
+import type { Collection, CollectionListResponse, CreateCollection, CreateFinding, Finding, FindingsResponse, OverviewResponse, RadarResponse, SampleAnalysis, SampleDetail, SampleDetailResponse, SamplePage, SimilarSamplesResponse } from "./types";
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -47,6 +47,9 @@ export async function getSample(id: string): Promise<SampleDetail> {
 export function getSampleAnalysis(id: string): Promise<SampleAnalysis> { return getJson<SampleAnalysis>(`/api/samples/${id}/analysis`); }
 export function getSimilarSamples(id: string): Promise<SimilarSamplesResponse> { return getJson<SimilarSamplesResponse>(`/api/samples/${id}/similar`); }
 export function getCollections(): Promise<CollectionListResponse> { return getJson<CollectionListResponse>("/api/collections"); }
+export function createCollection(collection: CreateCollection): Promise<Collection> {
+  return requestJson<Collection>("/api/collections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(collection) });
+}
 export function getFindings(collectionId: number): Promise<FindingsResponse> { return getJson<FindingsResponse>(`/api/collections/${collectionId}/findings`); }
 
 export function createFinding(collectionId: number, finding: CreateFinding): Promise<Finding> {

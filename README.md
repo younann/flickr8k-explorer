@@ -75,7 +75,7 @@ React/Vite SPA <--- local HTTP JSON/image bytes <--- FastAPI <-------+
 
 ## Research Radar and local findings
 
-Research Radar ranks examples by transparent, locally computed caption-token variation and caption-length spread. Choose **Highest disagreement** in the contact-sheet sort control to make the same analysis order shareable in the URL. The score is a triage signal, not a measure of annotation quality, image semantics, or ground truth.
+Research Radar ranks examples by transparent, locally computed caption-token variation and vocabulary diversity. Choose **Highest disagreement** in the contact-sheet sort control to make the same analysis order shareable in the URL. The score is a triage signal, not a measure of annotation quality, image semantics, or ground truth.
 
 The detail view also lists visually close candidates using perceptual-hash distance. Perceptual hashes are useful for finding near-duplicate images, but they do not understand image content: a small hash distance is not semantic similarity, and a large distance does not prove two images are unrelated. Review the image and its five captions before drawing a conclusion.
 

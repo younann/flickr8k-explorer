@@ -123,3 +123,18 @@ test("lists findings with deletion controls and direct export links", async () =
 
   expect(await screen.findByRole("status")).toHaveTextContent("Finding deleted");
 });
+
+test("creates a local collection from the empty collections page", async () => {
+  vi.stubGlobal("fetch", vi.fn((url: string, init?: RequestInit) => {
+    if (url === "/api/collections" && init?.method === "POST") return Promise.resolve(response({ ...collections[0], name: "Fresh review", finding_count: 0 }, 201));
+    if (url === "/api/collections") return Promise.resolve(response({ items: [] }));
+    return Promise.resolve(response({ detail: "Not found" }, 404));
+  }));
+  render(<App />, { wrapper: routerAt("/collections") });
+
+  fireEvent.change(await screen.findByRole("textbox", { name: "New collection name" }), { target: { value: "Fresh review" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create collection" }));
+
+  expect(await screen.findByRole("heading", { name: "Fresh review" })).toBeVisible();
+  expect(screen.getByRole("status")).toHaveTextContent("Created Fresh review");
+});

@@ -27,6 +27,38 @@ def test_radar_returns_ranked_outliers(tmp_path: Path):
     assert payload["outliers"][0]["disagreement_score"] >= 0
     assert payload["summary"]["sample_count"] == 2
     assert sum(bucket["sample_count"] for bucket in payload["distribution"]) == 2
+    assert payload["split_composition"] == [{"name": "train", "sample_count": 2}]
+
+
+def test_radar_filters_by_score_and_exact_hash_near_duplicate_signal(tmp_path: Path):
+    client = prepared_client(tmp_path)
+    data_dir = tmp_path / "data"
+    sample_ids = [item["id"] for item in client.get("/api/samples").json()["items"]]
+    with connect(data_dir) as connection:
+        connection.execute("UPDATE samples SET split = 'validation' WHERE id = ?", (sample_ids[1],))
+        connection.execute("UPDATE sample_analysis SET disagreement_score = 25, perceptual_hash = '0000000000000000' WHERE sample_id = ?", (sample_ids[0],))
+        connection.execute("UPDATE sample_analysis SET disagreement_score = 85, perceptual_hash = '0000000000000000' WHERE sample_id = ?", (sample_ids[1],))
+        connection.execute(
+            """INSERT INTO samples (id, split, source_shard, source_row, image_path, media_type, width, height, aspect_ratio)
+            VALUES ('unpaired', 'validation', 'extra.parquet', 0, 'unused.png', 'image/png', 1, 1, 1)"""
+        )
+        connection.execute("INSERT INTO captions (sample_id, position, text, word_count) VALUES ('unpaired', 0, 'Unpaired sample', 2)")
+        connection.execute(
+            """INSERT INTO sample_analysis (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
+            mean_caption_length, caption_length_spread, perceptual_hash) VALUES ('unpaired', 85, 0, 0, 0, 0, 'ffffffffffffffff')"""
+        )
+        connection.commit()
+
+    response = client.get("/api/radar", params={"split": "validation", "min_score": 80, "max_score": 90, "near_duplicates_only": "true"})
+
+    assert response.status_code == 200
+    assert response.json()["summary"]["sample_count"] == 1
+    assert [item["id"] for item in response.json()["outliers"]] == [sample_ids[1]]
+    assert response.json()["split_composition"] == [
+        {"name": "train", "sample_count": 1},
+        {"name": "validation", "sample_count": 2},
+    ]
+    assert client.get("/api/radar", params={"min_score": 90, "max_score": 80}).status_code == 422
 
 
 def test_analysis_and_visually_close_samples_use_local_hashes(tmp_path: Path):

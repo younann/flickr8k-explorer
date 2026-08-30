@@ -28,7 +28,7 @@ export function AnalysisPanel({ analysis, captions, neighbors }: AnalysisPanelPr
     <div className="analysis-heading">
       <p className="eyebrow">Evidence triage / local signals</p>
       <h2 id="evidence-title">Read why these captions diverge</h2>
-      <p>The score combines observable wording variation and caption-length standard deviation. It is a local triage aid, not a judgement of caption quality or meaning.</p>
+      <p>The score combines observable token variation and vocabulary diversity. Caption-length spread is supporting context only. It is a local triage aid, not a judgement of caption quality or meaning.</p>
     </div>
     <dl className="evidence-metrics">
       <div><dt>Disagreement score</dt><dd><span className="metric-value">{analysis.disagreement_score}<small>/ 100</small></span><span className="metric-description">Combined local signal used to rank caption variation.</span></dd></div>

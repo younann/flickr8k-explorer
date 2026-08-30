@@ -70,9 +70,18 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
         return FileResponse(path, media_type=media_type)
 
     @router.get("/radar", response_model=RadarResponse, responses=errors)
-    def radar(split: str | None = None) -> RadarResponse:
+    def radar(
+        split: str | None = None,
+        min_score: int = Query(0, ge=0, le=100),
+        max_score: int = Query(100, ge=0, le=100),
+        near_duplicates_only: bool = False,
+    ) -> RadarResponse:
         require_data()
-        return RadarResponse(**repository.radar(split))
+        if min_score > max_score:
+            raise HTTPException(status_code=422, detail="min_score must not exceed max_score")
+        return RadarResponse(**repository.radar(
+            split=split, min_score=min_score, max_score=max_score, near_duplicates_only=near_duplicates_only,
+        ))
 
     @router.get("/samples/{sample_id}/analysis", response_model=SampleAnalysisResponse, responses=errors)
     def sample_analysis(sample_id: str) -> SampleAnalysisResponse:
