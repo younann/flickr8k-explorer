@@ -74,6 +74,50 @@ export type SampleDetail = Sample & {
   captions: string[];
 };
 
+export type SampleAnalysis = {
+  sample_id: string;
+  disagreement_score: number;
+  token_disagreement: number;
+  vocabulary_diversity: number;
+  mean_caption_length: number;
+  caption_length_spread: number;
+  differing_tokens: string[];
+};
+
+export type SimilarSample = Sample & {
+  distance: number;
+};
+
+export type SimilarSamplesResponse = { items: SimilarSample[] };
+
+export type Collection = {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  finding_count: number;
+};
+
+export type CollectionListResponse = { items: Collection[] };
+
+export type Finding = {
+  id: number;
+  collection_id: number;
+  sample_id: string;
+  tags: string[];
+  note: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FindingsResponse = { items: Finding[] };
+
+export type CreateFinding = {
+  sample_id: string;
+  tags: string[];
+  note: string;
+};
+
 type SampleDetailResponse = {
   sample: SampleDetail;
 };
