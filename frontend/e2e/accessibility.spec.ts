@@ -28,3 +28,16 @@ test("keeps gallery controls keyboard reachable", async ({ page }) => {
   await nextPage.focus();
   await expect(nextPage).toBeFocused();
 });
+
+test("keeps primary navigation usable at a mobile width", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "This regression covers the mobile header layout.");
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/");
+
+  const header = page.locator(".masthead");
+  await expect(header).toBeVisible();
+  await expect(header.getByRole("link", { name: "Overview" })).toBeVisible();
+  await expect(header.getByRole("link", { name: "Browse samples" })).toBeVisible();
+  await expect(header.getByRole("link", { name: "Research Radar" })).toBeVisible();
+  expect(await header.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
