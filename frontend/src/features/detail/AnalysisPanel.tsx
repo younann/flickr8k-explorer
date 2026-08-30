@@ -31,10 +31,10 @@ export function AnalysisPanel({ analysis, captions, neighbors }: AnalysisPanelPr
       <p>The score combines observable wording variation and caption-length standard deviation. It is a local triage aid, not a judgement of caption quality or meaning.</p>
     </div>
     <dl className="evidence-metrics">
-      <div><dt>Disagreement score</dt><dd>{analysis.disagreement_score}<small>/ 100</small></dd><p>Combined local signal used to rank caption variation.</p></div>
-      <div><dt>Token disagreement</dt><dd>{analysis.token_disagreement.toFixed(2)}</dd><p>How often captions use different word tokens.</p></div>
-      <div><dt>Vocabulary diversity</dt><dd>{analysis.vocabulary_diversity.toFixed(2)}</dd><p>How varied the caption vocabulary is across the set.</p></div>
-      <div><dt>Caption-length standard deviation</dt><dd>{analysis.caption_length_spread.toFixed(1)}</dd><p>How far caption word counts typically sit from their average; mean {analysis.mean_caption_length.toFixed(1)} words.</p></div>
+      <div><dt>Disagreement score</dt><dd><span className="metric-value">{analysis.disagreement_score}<small>/ 100</small></span><span className="metric-description">Combined local signal used to rank caption variation.</span></dd></div>
+      <div><dt>Token disagreement</dt><dd><span className="metric-value">{analysis.token_disagreement.toFixed(2)}</span><span className="metric-description">How often captions use different word tokens.</span></dd></div>
+      <div><dt>Vocabulary diversity</dt><dd><span className="metric-value">{analysis.vocabulary_diversity.toFixed(2)}</span><span className="metric-description">How varied the caption vocabulary is across the set.</span></dd></div>
+      <div><dt>Caption-length standard deviation</dt><dd><span className="metric-value">{analysis.caption_length_spread.toFixed(1)}</span><span className="metric-description">How far caption word counts typically sit from their average; mean {analysis.mean_caption_length.toFixed(1)} words.</span></dd></div>
     </dl>
     <p className="token-key"><mark>Highlighted words</mark> appear in a strict subset of these captions, so the original wording remains readable in context.</p>
     <ol className="evidence-captions" aria-label="Captions with differing tokens highlighted">

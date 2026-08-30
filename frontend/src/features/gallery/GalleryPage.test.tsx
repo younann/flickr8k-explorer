@@ -62,6 +62,16 @@ test("next page preserves filters and updates only the page", async () => {
   expect(screen.getByText("/gallery?q=dog&split=train&page=3")).toBeVisible();
 });
 
+test("keeps disagreement sorting while changing gallery page", async () => {
+  renderGallery("/gallery?sort=disagreement");
+
+  expect(await screen.findByRole("combobox", { name: "Sort samples" })).toHaveValue("disagreement");
+  await screen.findByText("Page one sample");
+  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+
+  expect(screen.getByText("/gallery?sort=disagreement&page=2")).toBeVisible();
+});
+
 test("shows a debounce indicator before requesting a new caption query", async () => {
   renderGallery("/gallery?q=dog");
   const search = await screen.findByRole("textbox", { name: "Caption search" });

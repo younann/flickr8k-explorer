@@ -6,8 +6,10 @@ A local-first visual inspection tool for the Flickr8k image-caption dataset. It 
 
 - Imports Flickr8k Parquet shards into local SQLite and writes images to the local `data/images/` cache.
 - Searches all five human captions with SQLite FTS5 and filters by dataset split.
-- Shows a responsive contact sheet with URL-shareable caption, split, page, and page-size filters, plus a focused image inspector with all five captions, original dimensions, and aspect ratio.
+- Shows a responsive contact sheet with URL-shareable caption, split, sort, page, and page-size filters, plus a focused image inspector with all five captions, original dimensions, and aspect ratio.
 - Displays an overview of local split totals, caption length and frequent terms, and portrait/square/landscape image distribution.
+- Includes Research Radar: a local ranking of caption disagreement that helps researchers locate annotation sets worth inspecting, then return to a disagreement-sorted gallery.
+- Lets researchers save evidence-backed annotations to local collections and export those collections as CSV or JSON.
 - Runs entirely on one machine after the initial dataset import. The browser application only calls the local FastAPI server; it makes no Hugging Face, cloud database, hosted-search, or model-inference requests at runtime.
 
 ## Requirements
@@ -71,6 +73,21 @@ React/Vite SPA <--- local HTTP JSON/image bytes <--- FastAPI <-------+
 
 `backend/app/importer.py` owns Parquet ingestion; `repository.py` owns parameterized SQLite reads; `routes.py` owns HTTP behavior. The React client is intentionally a small feature-oriented UI that consumes those local endpoints.
 
+## Research Radar and local findings
+
+Research Radar ranks examples by transparent, locally computed caption-token variation and caption-length spread. Choose **Highest disagreement** in the contact-sheet sort control to make the same analysis order shareable in the URL. The score is a triage signal, not a measure of annotation quality, image semantics, or ground truth.
+
+The detail view also lists visually close candidates using perceptual-hash distance. Perceptual hashes are useful for finding near-duplicate images, but they do not understand image content: a small hash distance is not semantic similarity, and a large distance does not prove two images are unrelated. Review the image and its five captions before drawing a conclusion.
+
+Save a finding with optional tags and a note to a local collection. The collection view exports the saved evidence as CSV or JSON; exports stay on the local API and contain the collection metadata and finding fields needed for a later analysis step.
+
+## 90-second demo flow
+
+1. Open **Research Radar** and choose one of the high-disagreement outliers.
+2. Inspect its five captions, local score breakdown, and visually close candidates.
+3. Choose a local collection, add a concise ambiguity note or tags, then select **Save finding**.
+4. Open **Collections** from the saved confirmation and select **Export CSV** (or JSON) to carry the finding into the next analysis step.
+
 ## Local quality gates
 
 ```bash
@@ -102,7 +119,7 @@ cd frontend && npm run test:a11y
 
 ## Scope and trade-offs
 
-The first version favors transparent, dependable retrieval: SQLite FTS5 searches the human captions locally and produces explainable results. It does not include embeddings, semantic/image similarity, model inference, accounts, annotations, or cloud infrastructure. Those capabilities can be added behind the existing sample IDs and repository boundary without changing the local data contract.
+The first version favors transparent, dependable retrieval: SQLite FTS5 searches the human captions locally and produces explainable results. It intentionally does not include embeddings, semantic/image similarity, model inference, accounts, or cloud infrastructure. Local annotations and collection exports are included; richer capabilities can be added behind the existing sample IDs and repository boundary without changing the local data contract.
 
 ## Troubleshooting
 

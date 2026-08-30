@@ -40,7 +40,7 @@ export function CollectionsPage() {
     {collections === null && <p className="status">Loading collections…</p>}
     <p className="save-status" role="status" aria-live="polite">{status}</p>
     {collections?.map(collection => <section className="collection-card" key={collection.id} aria-labelledby={`collection-${collection.id}`}>
-      <div className="collection-heading"><div><p className="eyebrow">{collection.finding_count} saved findings</p><h2 id={`collection-${collection.id}`}>{collection.name}</h2></div><div className="collection-actions"><a href={`/api/collections/${collection.id}/export?format=csv`}>Download CSV</a><a href={`/api/collections/${collection.id}/export?format=json`}>Download JSON</a></div></div>
+      <div className="collection-heading"><div><p className="eyebrow">{collection.finding_count} saved findings</p><h2 id={`collection-${collection.id}`}>{collection.name}</h2></div><div className="collection-actions"><a href={`/api/collections/${collection.id}/export?format=csv`}>Export CSV</a><a href={`/api/collections/${collection.id}/export?format=json`}>Export JSON</a></div></div>
       {collection.findings.length === 0 && <p className="status">No findings have been saved in this collection.</p>}
       <ul className="finding-list">{collection.findings.map(finding => <li key={finding.id}>
         <div><Link to={`/samples/${finding.sample_id}`}>{finding.sample_id}</Link>{finding.tags.length > 0 && <p className="tags">{finding.tags.map(tag => <span key={tag}>{tag}</span>)}</p>}<p>{finding.note || "No note added."}</p></div>

@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { createFinding } from "../../api/client";
 import type { Collection } from "../../api/types";
 
@@ -40,6 +41,6 @@ export function SaveFindingForm({ sampleId, collections }: SaveFindingFormProps)
       <button type="submit" disabled={isSaving || collections.length === 0}>{isSaving ? "Saving…" : "Save finding"}</button>
     </form>
     {collections.length === 0 && <p className="status">Create a collection before saving findings.</p>}
-    <p className="save-status" role="status" aria-live="polite">{status}</p>
+    <p className="save-status" role="status" aria-live="polite">{status}{status.startsWith("Saved to") && <> <Link to="/collections">Collections</Link></>}</p>
   </section>;
 }

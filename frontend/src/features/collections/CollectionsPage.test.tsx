@@ -116,8 +116,8 @@ test("lists findings with deletion controls and direct export links", async () =
 
   expect(await screen.findByRole("heading", { name: "Collections" })).toBeVisible();
   expect(await screen.findByText("Captions disagree about motion.")).toBeVisible();
-  expect(screen.getByRole("link", { name: "Download CSV" })).toHaveAttribute("href", "/api/collections/1/export?format=csv");
-  expect(screen.getByRole("link", { name: "Download JSON" })).toHaveAttribute("href", "/api/collections/1/export?format=json");
+  expect(screen.getByRole("link", { name: "Export CSV" })).toHaveAttribute("href", "/api/collections/1/export?format=csv");
+  expect(screen.getByRole("link", { name: "Export JSON" })).toHaveAttribute("href", "/api/collections/1/export?format=json");
 
   fireEvent.click(screen.getByRole("button", { name: "Delete finding 4" }));
 
