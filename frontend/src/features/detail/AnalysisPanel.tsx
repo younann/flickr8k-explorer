@@ -28,13 +28,13 @@ export function AnalysisPanel({ analysis, captions, neighbors }: AnalysisPanelPr
     <div className="analysis-heading">
       <p className="eyebrow">Evidence triage / local signals</p>
       <h2 id="evidence-title">Read why these captions diverge</h2>
-      <p>The score combines observable wording variation and caption-length spread. It is a local triage aid, not a judgement of caption quality or meaning.</p>
+      <p>The score combines observable wording variation and caption-length standard deviation. It is a local triage aid, not a judgement of caption quality or meaning.</p>
     </div>
     <dl className="evidence-metrics">
       <div><dt>Disagreement score</dt><dd>{analysis.disagreement_score}<small>/ 100</small></dd><p>Combined local signal used to rank caption variation.</p></div>
       <div><dt>Token disagreement</dt><dd>{analysis.token_disagreement.toFixed(2)}</dd><p>How often captions use different word tokens.</p></div>
       <div><dt>Vocabulary diversity</dt><dd>{analysis.vocabulary_diversity.toFixed(2)}</dd><p>How varied the caption vocabulary is across the set.</p></div>
-      <div><dt>Caption-length spread</dt><dd>{analysis.caption_length_spread.toFixed(1)}</dd><p>Difference in caption word counts; mean {analysis.mean_caption_length.toFixed(1)} words.</p></div>
+      <div><dt>Caption-length standard deviation</dt><dd>{analysis.caption_length_spread.toFixed(1)}</dd><p>How far caption word counts typically sit from their average; mean {analysis.mean_caption_length.toFixed(1)} words.</p></div>
     </dl>
     <p className="token-key"><mark>Highlighted words</mark> appear in a strict subset of these captions, so the original wording remains readable in context.</p>
     <ol className="evidence-captions" aria-label="Captions with differing tokens highlighted">

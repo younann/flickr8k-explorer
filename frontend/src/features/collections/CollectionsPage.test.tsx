@@ -87,9 +87,28 @@ test("saves a tagged finding from evidence triage", async () => {
 
   fireEvent.change(await screen.findByLabelText("Collection"), { target: { value: "1" } });
   fireEvent.change(screen.getByLabelText("Tags"), { target: { value: "action, ambiguity" } });
+  fireEvent.change(screen.getByLabelText("Note"), { target: { value: "Different wording for the action." } });
   fireEvent.click(screen.getByRole("button", { name: "Save finding" }));
 
   expect(await screen.findByRole("status")).toHaveTextContent("Saved to Action ambiguity examples");
+  expect(fetch).toHaveBeenCalledWith("/api/collections/1/findings", expect.objectContaining({
+    method: "POST",
+    body: JSON.stringify({
+      sample_id: sample.id,
+      tags: ["action", "ambiguity"],
+      note: "Different wording for the action.",
+    }),
+  }));
+});
+
+test("explains local evidence without overstating visual-neighbour or token signals", async () => {
+  render(<Routes><Route path="/samples/:id" element={<DetailPage />} /></Routes>, { wrapper: routerAt(`/samples/${sample.id}`) });
+
+  expect(await screen.findByText("Caption-length standard deviation")).toBeVisible();
+  expect(screen.getByText(/strict subset of these captions/i)).toBeVisible();
+  expect(screen.getByText(/not semantic similarity/i)).toBeVisible();
+  expect(screen.getByText("brown", { selector: "mark" })).toBeVisible();
+  expect(screen.queryByText("dog", { selector: "mark" })).not.toBeInTheDocument();
 });
 
 test("lists findings with deletion controls and direct export links", async () => {
