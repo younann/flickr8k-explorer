@@ -7,6 +7,8 @@ from statistics import fmean, pstdev
 
 from PIL import Image
 
+CURRENT_ANALYSIS_VERSION = "1"
+
 
 @dataclass(frozen=True)
 class CaptionAnalysis:

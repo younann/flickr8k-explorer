@@ -85,3 +85,22 @@ test("keeps Radar split, score, and near-duplicate filters in the URL", async ()
 
   expect(window.location.search).toBe("?split=validation&min_score=40&max_score=90&near_duplicates_only=true");
 });
+
+test("normalizes malformed Radar URL filters before requesting data", async () => {
+  render(<App />, { wrapper: routerAt("/radar?split=archive&min_score=not-a-score&max_score=101&near_duplicates_only=1") });
+
+  expect(await screen.findByRole("combobox", { name: "Split" })).toHaveValue("");
+  expect(screen.getByRole("spinbutton", { name: "Minimum disagreement" })).toHaveValue(0);
+  expect(screen.getByRole("spinbutton", { name: "Maximum disagreement" })).toHaveValue(100);
+  expect(screen.getByRole("checkbox", { name: "Near-duplicate signal only" })).not.toBeChecked();
+  expect(fetch).toHaveBeenCalledWith("/api/radar");
+  expect(window.location.search).toBe("");
+});
+
+test("orders valid Radar score bounds from the URL before requesting data", async () => {
+  render(<App />, { wrapper: routerAt("/radar?min_score=90&max_score=10") });
+
+  expect(await screen.findByRole("spinbutton", { name: "Minimum disagreement" })).toHaveValue(10);
+  expect(screen.getByRole("spinbutton", { name: "Maximum disagreement" })).toHaveValue(90);
+  expect(fetch).toHaveBeenCalledWith("/api/radar?min_score=10&max_score=90");
+});

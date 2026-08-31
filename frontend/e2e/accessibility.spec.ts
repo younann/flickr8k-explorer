@@ -31,6 +31,17 @@ test("keeps gallery controls keyboard reachable", async ({ page }) => {
   await expect(page).toHaveURL("/gallery?q=dog&sort=disagreement");
 });
 
+test("keeps evidence captions inside their rows", async ({ page }) => {
+  await page.goto("/gallery?q=dog");
+  await page.locator(".sample-card").first().click();
+  await expect(page.getByRole("heading", { name: "Read why these captions diverge" })).toBeVisible();
+
+  const rows = page.locator(".evidence-captions li");
+  await expect(rows).toHaveCount(5);
+  expect(await rows.evaluateAll(captions => captions.every(caption => caption.scrollWidth <= caption.clientWidth))).toBe(true);
+  expect(await page.locator(".evidence-captions mark").evaluateAll(marks => marks.every(mark => mark.parentElement?.classList.contains("evidence-caption-text")))).toBe(true);
+});
+
 test("keeps primary navigation usable at a mobile width", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "This regression covers the mobile header layout.");
   await page.setViewportSize({ width: 320, height: 720 });

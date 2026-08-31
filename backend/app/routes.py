@@ -6,10 +6,11 @@ import json
 import re
 import sqlite3
 from collections.abc import Iterator
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from pydantic import BeforeValidator
 
 from app.repository import DatasetRepository
 from app.models import (
@@ -30,6 +31,19 @@ from app.models import (
     SimilarSamplesResponse,
 )
 
+ANALYSIS_BACKFILL_REQUIRED = "Analysis backfill is required. Run python scripts/import_dataset.py --download."
+
+
+def _strict_radar_boolean(value: object) -> bool:
+    if value is True or value == "true":
+        return True
+    if value is False or value == "false":
+        return False
+    raise ValueError("near_duplicates_only must be true or false")
+
+
+RadarBoolean = Annotated[bool, BeforeValidator(_strict_radar_boolean)]
+
 
 def dataset_router(repository: DatasetRepository) -> APIRouter:
     router = APIRouter(prefix="/api")
@@ -37,6 +51,10 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
     def require_data() -> None:
         if not repository.ready:
             raise HTTPException(status_code=409, detail="Dataset is not imported. Run python scripts/import_dataset.py --download.")
+
+    def require_analysis() -> None:
+        if not repository.analysis_ready:
+            raise HTTPException(status_code=409, detail=ANALYSIS_BACKFILL_REQUIRED)
 
     errors = {409: {"model": ErrorResponse}, 404: {"model": ErrorResponse}}
     @router.get("/overview", response_model=OverviewResponse, responses=errors)
@@ -50,6 +68,8 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
         page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=100),
     ) -> SamplePage:
         require_data()
+        if sort == "disagreement":
+            require_analysis()
         return SamplePage(**repository.samples(query=q, split=split, sort=sort, page=page, page_size=page_size))
 
     @router.get("/samples/{sample_id}", response_model=SampleDetailResponse, responses=errors)
@@ -71,12 +91,13 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
 
     @router.get("/radar", response_model=RadarResponse, responses=errors)
     def radar(
-        split: str | None = None,
+        split: Literal["train", "validation", "test"] | None = None,
         min_score: int = Query(0, ge=0, le=100),
         max_score: int = Query(100, ge=0, le=100),
-        near_duplicates_only: bool = False,
+        near_duplicates_only: RadarBoolean = False,
     ) -> RadarResponse:
         require_data()
+        require_analysis()
         if min_score > max_score:
             raise HTTPException(status_code=422, detail="min_score must not exceed max_score")
         return RadarResponse(**repository.radar(
@@ -86,6 +107,7 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
     @router.get("/samples/{sample_id}/analysis", response_model=SampleAnalysisResponse, responses=errors)
     def sample_analysis(sample_id: str) -> SampleAnalysisResponse:
         require_data()
+        require_analysis()
         analysis = repository.analysis(sample_id)
         if analysis is None:
             raise HTTPException(status_code=404, detail="Sample not found")
@@ -94,6 +116,7 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
     @router.get("/samples/{sample_id}/similar", response_model=SimilarSamplesResponse, responses=errors)
     def similar_samples(sample_id: str, limit: int = Query(6, ge=1, le=6)) -> SimilarSamplesResponse:
         require_data()
+        require_analysis()
         if repository.detail(sample_id) is None:
             raise HTTPException(status_code=404, detail="Sample not found")
         return SimilarSamplesResponse(items=repository.similar(sample_id, limit))

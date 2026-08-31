@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest",
-    "test:e2e": "playwright test e2e/gallery.spec.ts e2e/research-radar.spec.ts",
-    "test:a11y": "playwright test e2e/accessibility.spec.ts"
+    "test:e2e": "playwright test --config=playwright.release.config.ts e2e/gallery.spec.ts e2e/research-radar.spec.ts",
+    "test:a11y": "playwright test --config=playwright.release.config.ts e2e/accessibility.spec.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.7",

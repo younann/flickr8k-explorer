@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import re
 
-from app.analysis import hamming_distance
+from app.analysis import CURRENT_ANALYSIS_VERSION, hamming_distance
 from app.db import connect, database_path
 
 
@@ -30,9 +30,24 @@ class DatasetRepository:
             ).fetchone()
             if table is None:
                 return False
+            metadata_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'analysis_metadata'"
+            ).fetchone()
+            if metadata_table is None:
+                return False
             sample_count = connection.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
             analysis_count = connection.execute("SELECT COUNT(*) FROM sample_analysis").fetchone()[0]
-        return sample_count == analysis_count
+            current_analysis_count = connection.execute(
+                "SELECT COUNT(*) FROM sample_analysis WHERE analysis_version = ?", (CURRENT_ANALYSIS_VERSION,)
+            ).fetchone()[0]
+            version = connection.execute(
+                "SELECT value FROM analysis_metadata WHERE key = 'analysis_version'"
+            ).fetchone()
+        return (
+            sample_count == analysis_count == current_analysis_count
+            and version is not None
+            and version["value"] == CURRENT_ANALYSIS_VERSION
+        )
 
     def samples(
         self, *, query: str = "", split: str | None = None, sort: str = "default", page: int = 1, page_size: int = 30
@@ -282,7 +297,7 @@ class DatasetRepository:
                     sample_analysis.vocabulary_diversity, sample_analysis.mean_caption_length,
                     sample_analysis.caption_length_spread, sample_analysis.perceptual_hash
                     FROM findings JOIN samples ON samples.id = findings.sample_id
-                    JOIN sample_analysis ON sample_analysis.sample_id = findings.sample_id
+                    LEFT JOIN sample_analysis ON sample_analysis.sample_id = findings.sample_id
                     WHERE findings.collection_id = ? ORDER BY findings.created_at DESC, findings.id DESC""",
                 (collection_id,),
             ).fetchall()

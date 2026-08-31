@@ -17,9 +17,9 @@ function strictSubsetTokens(captions: string[], candidates: string[]) {
 }
 
 function HighlightedCaption({ caption, tokens }: { caption: string; tokens: Set<string> }) {
-  return <>{caption.split(/([a-z]+)/gi).map((part, index) =>
+  return <span className="evidence-caption-text">{caption.split(/([a-z]+)/gi).map((part, index) =>
     tokens.has(part.toLowerCase()) ? <mark key={`${part}-${index}`}>{part}</mark> : part,
-  )}</>;
+  )}</span>;
 }
 
 export function AnalysisPanel({ analysis, captions, neighbors }: AnalysisPanelProps) {

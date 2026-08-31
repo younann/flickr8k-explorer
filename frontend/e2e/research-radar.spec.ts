@@ -9,6 +9,16 @@ test("keeps Radar filter controls shareable", async ({ page }) => {
   await expect(page).toHaveURL("/radar?min_score=1&near_duplicates_only=true");
 });
 
+test("normalizes malformed Radar filters without showing an error", async ({ page }) => {
+  await page.goto("/radar?split=archive&min_score=not-a-score&max_score=101&near_duplicates_only=1");
+
+  await expect(page.getByRole("combobox", { name: "Split" })).toHaveValue("");
+  await expect(page.getByRole("spinbutton", { name: "Minimum disagreement" })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Maximum disagreement" })).toHaveValue("100");
+  await expect(page.getByRole("checkbox", { name: "Near-duplicate signal only" })).not.toBeChecked();
+  await expect(page.locator(".feedback")).toHaveCount(0);
+});
+
 test("fresh researcher creates, saves, and exports an ambiguity finding", async ({ page }, testInfo) => {
   const collectionName = `Radar workflow ${testInfo.project.name} ${Date.now()}`;
 

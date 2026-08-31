@@ -2,8 +2,10 @@ import csv
 from io import StringIO
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
+from app.analysis import CURRENT_ANALYSIS_VERSION
 from app.db import connect
 from app.importer import import_shards
 from app.main import create_app
@@ -17,6 +19,35 @@ def prepared_client(tmp_path: Path) -> TestClient:
     return TestClient(create_app(data_dir=data_dir))
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/radar",
+        "/api/samples?sort=disagreement",
+        "/api/samples/{sample_id}/analysis",
+        "/api/samples/{sample_id}/similar",
+    ],
+)
+def test_analysis_dependent_reads_require_a_local_backfill(tmp_path: Path, path: str):
+    shard = write_fixture_shard(tmp_path / "train.parquet")
+    data_dir = tmp_path / "data"
+    import_shards({"train": [shard]}, data_dir)
+    with connect(data_dir) as connection:
+        metadata_table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'analysis_metadata'"
+        ).fetchone()
+        if metadata_table is not None:
+            connection.execute("DELETE FROM analysis_metadata WHERE key = 'analysis_version'")
+            connection.commit()
+
+    client = TestClient(create_app(data_dir=data_dir))
+    sample_id = client.get("/api/samples").json()["items"][0]["id"]
+    response = client.get(path.format(sample_id=sample_id))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Analysis backfill is required. Run python scripts/import_dataset.py --download."}
+
+
 def test_radar_returns_ranked_outliers(tmp_path: Path):
     client = prepared_client(tmp_path)
 
@@ -28,6 +59,24 @@ def test_radar_returns_ranked_outliers(tmp_path: Path):
     assert payload["summary"]["sample_count"] == 2
     assert sum(bucket["sample_count"] for bucket in payload["distribution"]) == 2
     assert payload["split_composition"] == [{"name": "train", "sample_count": 2}]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"split": "archive"},
+        {"near_duplicates_only": "1"},
+        {"min_score": "not-a-score"},
+        {"max_score": "101"},
+        {"min_score": "90", "max_score": "10"},
+    ],
+)
+def test_radar_rejects_invalid_filter_parameters(tmp_path: Path, params: dict[str, str]):
+    client = prepared_client(tmp_path)
+
+    response = client.get("/api/radar", params=params)
+
+    assert response.status_code == 422
 
 
 def test_radar_filters_by_score_and_exact_hash_near_duplicate_signal(tmp_path: Path):
@@ -45,7 +94,9 @@ def test_radar_filters_by_score_and_exact_hash_near_duplicate_signal(tmp_path: P
         connection.execute("INSERT INTO captions (sample_id, position, text, word_count) VALUES ('unpaired', 0, 'Unpaired sample', 2)")
         connection.execute(
             """INSERT INTO sample_analysis (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
-            mean_caption_length, caption_length_spread, perceptual_hash) VALUES ('unpaired', 85, 0, 0, 0, 0, 'ffffffffffffffff')"""
+            mean_caption_length, caption_length_spread, perceptual_hash, analysis_version)
+            VALUES ('unpaired', 85, 0, 0, 0, 0, 'ffffffffffffffff', ?)""",
+            (CURRENT_ANALYSIS_VERSION,),
         )
         connection.commit()
 
@@ -99,9 +150,9 @@ def test_similar_samples_caps_tied_hashes_and_uses_sample_id_as_tiebreaker(tmp_p
             connection.execute(
                 """INSERT INTO sample_analysis
                     (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
-                    mean_caption_length, caption_length_spread, perceptual_hash)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (sample_id, 0, 0, 0, 0, 0, "0000000000000000"),
+                    mean_caption_length, caption_length_spread, perceptual_hash, analysis_version)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (sample_id, 0, 0, 0, 0, 0, "0000000000000000", CURRENT_ANALYSIS_VERSION),
             )
         connection.commit()
 
@@ -158,6 +209,27 @@ def test_collection_finding_can_be_created_and_exported(tmp_path: Path):
     assert csv_row["collection_updated_at"] == exported.json()["collection"]["updated_at"]
     assert csv_row["perceptual_hash"] == json_finding["perceptual_hash"]
     assert csv_row["caption_length_spread"] == str(json_finding["caption_length_spread"])
+
+
+def test_collection_export_keeps_saved_findings_without_analysis_rows(tmp_path: Path):
+    client = prepared_client(tmp_path)
+    data_dir = tmp_path / "data"
+    sample_id = client.get("/api/samples").json()["items"][0]["id"]
+    collection = client.post("/api/collections", json={"name": "Legacy evidence"}).json()
+    client.post(
+        f"/api/collections/{collection['id']}/findings",
+        json={"sample_id": sample_id, "tags": ["legacy"], "note": "Keep this note."},
+    )
+    with connect(data_dir) as connection:
+        connection.execute("DELETE FROM sample_analysis WHERE sample_id = ?", (sample_id,))
+        connection.commit()
+
+    response = client.get(f"/api/collections/{collection['id']}/export?format=json")
+
+    assert response.status_code == 200
+    assert len(response.json()["findings"]) == 1
+    assert response.json()["findings"][0]["sample_id"] == sample_id
+    assert response.json()["findings"][0]["perceptual_hash"] is None
 
 
 def test_missing_resources_and_invalid_write_payloads_use_http_errors(tmp_path: Path):
