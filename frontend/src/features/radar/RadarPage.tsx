@@ -3,6 +3,43 @@ import type { RadarOutlier, ScoreBucket } from "../../api/types";
 import { Feedback } from "../../components/Feedback";
 import { useRadar } from "./useRadar";
 
+const RADAR_SPLITS = ["train", "validation", "test"] as const;
+type RadarSplit = typeof RADAR_SPLITS[number];
+
+type RadarFilters = {
+  split: RadarSplit | "";
+  minScore: number;
+  maxScore: number;
+  nearDuplicatesOnly: boolean;
+};
+
+function normalizeScore(value: string | number | null, fallback: number): number {
+  if (value === null || value === "") return fallback;
+  const score = Number(value);
+  return Number.isInteger(score) && score >= 0 && score <= 100 ? score : fallback;
+}
+
+function normalizedRadarFilters(params: URLSearchParams): RadarFilters {
+  const split = params.get("split");
+  const minScore = normalizeScore(params.get("min_score"), 0);
+  const maxScore = normalizeScore(params.get("max_score"), 100);
+  return {
+    split: RADAR_SPLITS.includes(split as RadarSplit) ? split as RadarSplit : "",
+    minScore: Math.min(minScore, maxScore),
+    maxScore: Math.max(minScore, maxScore),
+    nearDuplicatesOnly: params.get("near_duplicates_only") === "true",
+  };
+}
+
+function radarParams(filters: RadarFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.split) params.set("split", filters.split);
+  if (filters.minScore) params.set("min_score", String(filters.minScore));
+  if (filters.maxScore !== 100) params.set("max_score", String(filters.maxScore));
+  if (filters.nearDuplicatesOnly) params.set("near_duplicates_only", "true");
+  return params;
+}
+
 function Distribution({ buckets, total }: { buckets: ScoreBucket[]; total: number }) {
   return <section className="radar-distribution" aria-labelledby="radar-distribution-title">
     <div><p className="eyebrow">Score distribution</p><h2 id="radar-distribution-title">Where caption variation falls</h2></div>
@@ -24,20 +61,17 @@ function OutlierCard({ outlier, search }: { outlier: RadarOutlier; search: strin
 export function RadarPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const params = new URLSearchParams(location.search);
-  const { data, error, isLoading } = useRadar(params);
-  const split = params.get("split") ?? "";
-  const minScore = Number(params.get("min_score") ?? "0");
-  const maxScore = Number(params.get("max_score") ?? "100");
-  const nearDuplicatesOnly = params.get("near_duplicates_only") === "true";
+  const filters = normalizedRadarFilters(new URLSearchParams(location.search));
+  const { split, minScore, maxScore, nearDuplicatesOnly } = filters;
+  const { data, error, isLoading } = useRadar(radarParams(filters));
   const galleryContext = new URLSearchParams();
   if (split) galleryContext.set("split", split);
   galleryContext.set("sort", "disagreement");
 
-  function update(updates: { split?: string; minScore?: number; maxScore?: number; nearDuplicatesOnly?: boolean }) {
+  function update(updates: Partial<RadarFilters>) {
     const next = new URLSearchParams(location.search);
-    const nextMin = Math.max(0, Math.min(100, updates.minScore ?? minScore));
-    const nextMax = Math.max(0, Math.min(100, updates.maxScore ?? maxScore));
+    const nextMin = normalizeScore(updates.minScore ?? minScore, minScore);
+    const nextMax = normalizeScore(updates.maxScore ?? maxScore, maxScore);
     const safeMin = Math.min(nextMin, nextMax);
     const safeMax = Math.max(nextMin, nextMax);
     const nextSplit = updates.split ?? split;
@@ -56,7 +90,7 @@ export function RadarPage() {
     {data && <>
       <section className="radar-composition" aria-labelledby="radar-composition-title"><p className="eyebrow">Dataset composition</p><h2 id="radar-composition-title">Samples by split</h2><ul>{data.split_composition.map(item => <li key={item.name}><b>{item.sample_count.toLocaleString()}</b> {item.name}</li>)}</ul></section>
       <form className="radar-filters" onSubmit={event => event.preventDefault()}>
-        <label>Split<select value={split} onChange={event => update({ split: event.target.value })}><option value="">All splits</option>{data.split_composition.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label>
+        <label>Split<select value={split} onChange={event => update({ split: event.target.value as RadarSplit | "" })}><option value="">All splits</option>{data.split_composition.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select></label>
         <label>Minimum disagreement<input type="number" min="0" max="100" value={minScore} onChange={event => update({ minScore: Number(event.target.value) })} /></label>
         <label>Maximum disagreement<input type="number" min="0" max="100" value={maxScore} onChange={event => update({ maxScore: Number(event.target.value) })} /></label>
         <label className="radar-check"><input type="checkbox" checked={nearDuplicatesOnly} onChange={event => update({ nearDuplicatesOnly: event.target.checked })} />Near-duplicate signal only</label>

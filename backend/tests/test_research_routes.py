@@ -61,6 +61,24 @@ def test_radar_returns_ranked_outliers(tmp_path: Path):
     assert payload["split_composition"] == [{"name": "train", "sample_count": 2}]
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"split": "archive"},
+        {"near_duplicates_only": "1"},
+        {"min_score": "not-a-score"},
+        {"max_score": "101"},
+        {"min_score": "90", "max_score": "10"},
+    ],
+)
+def test_radar_rejects_invalid_filter_parameters(tmp_path: Path, params: dict[str, str]):
+    client = prepared_client(tmp_path)
+
+    response = client.get("/api/radar", params=params)
+
+    assert response.status_code == 422
+
+
 def test_radar_filters_by_score_and_exact_hash_near_duplicate_signal(tmp_path: Path):
     client = prepared_client(tmp_path)
     data_dir = tmp_path / "data"

@@ -6,10 +6,11 @@ import json
 import re
 import sqlite3
 from collections.abc import Iterator
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from pydantic import BeforeValidator
 
 from app.repository import DatasetRepository
 from app.models import (
@@ -31,6 +32,17 @@ from app.models import (
 )
 
 ANALYSIS_BACKFILL_REQUIRED = "Analysis backfill is required. Run python scripts/import_dataset.py --download."
+
+
+def _strict_radar_boolean(value: object) -> bool:
+    if value is True or value == "true":
+        return True
+    if value is False or value == "false":
+        return False
+    raise ValueError("near_duplicates_only must be true or false")
+
+
+RadarBoolean = Annotated[bool, BeforeValidator(_strict_radar_boolean)]
 
 
 def dataset_router(repository: DatasetRepository) -> APIRouter:
@@ -79,10 +91,10 @@ def dataset_router(repository: DatasetRepository) -> APIRouter:
 
     @router.get("/radar", response_model=RadarResponse, responses=errors)
     def radar(
-        split: str | None = None,
+        split: Literal["train", "validation", "test"] | None = None,
         min_score: int = Query(0, ge=0, le=100),
         max_score: int = Query(100, ge=0, le=100),
-        near_duplicates_only: bool = False,
+        near_duplicates_only: RadarBoolean = False,
     ) -> RadarResponse:
         require_data()
         require_analysis()
