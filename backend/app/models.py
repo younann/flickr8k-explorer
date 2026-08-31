@@ -177,12 +177,12 @@ class ExportFinding(BaseModel):
     width: int
     height: int
     captions: list[str]
-    disagreement_score: int
-    token_disagreement: float
-    vocabulary_diversity: float
-    mean_caption_length: float
-    caption_length_spread: float
-    perceptual_hash: str
+    disagreement_score: int | None
+    token_disagreement: float | None
+    vocabulary_diversity: float | None
+    mean_caption_length: float | None
+    caption_length_spread: float | None
+    perceptual_hash: str | None
 
 
 class CollectionExportResponse(BaseModel):

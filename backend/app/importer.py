@@ -10,7 +10,7 @@ from typing import Iterable
 import pyarrow.parquet as pq
 from PIL import Image
 
-from app.analysis import caption_analysis, perceptual_hash
+from app.analysis import CURRENT_ANALYSIS_VERSION, caption_analysis, perceptual_hash
 from app.db import connect, initialize
 
 CAPTION_COLUMNS = tuple(f"caption_{index}" for index in range(5))
@@ -45,6 +45,7 @@ def import_shards(shards_by_split: dict[str, Iterable[Path]], data_dir: Path) ->
     initialize(connection)
     samples_imported = 0
     captions_imported = 0
+    analysis_written = False
     try:
         for split, shard_paths in shards_by_split.items():
             for shard_path in shard_paths:
@@ -104,7 +105,13 @@ def import_shards(shards_by_split: dict[str, Iterable[Path]], data_dir: Path) ->
                                 image_hash,
                             ),
                         )
+                        analysis_written = True
                         source_row += 1
+        if analysis_written:
+            connection.execute(
+                "INSERT OR REPLACE INTO analysis_metadata (key, value) VALUES ('analysis_version', ?)",
+                (CURRENT_ANALYSIS_VERSION,),
+            )
         connection.commit()
     finally:
         connection.close()

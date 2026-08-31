@@ -79,3 +79,26 @@ def test_reimport_backfills_analysis_without_touching_findings(tmp_path: Path):
         "tags": '["review"]',
         "note": "Keep this finding.",
     }
+
+
+def test_reimport_records_the_current_analysis_version(tmp_path: Path):
+    shard = write_fixture_shard(tmp_path / "train.parquet")
+    data_dir = tmp_path / "data"
+    import_shards({"train": [shard]}, data_dir)
+
+    with connect(data_dir) as connection:
+        metadata_table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'analysis_metadata'"
+        ).fetchone()
+        assert metadata_table is not None
+        connection.execute("DELETE FROM analysis_metadata WHERE key = 'analysis_version'")
+        connection.commit()
+
+    import_shards({"train": [shard]}, data_dir)
+
+    with connect(data_dir) as connection:
+        version = connection.execute(
+            "SELECT value FROM analysis_metadata WHERE key = 'analysis_version'"
+        ).fetchone()
+
+    assert version["value"] == "1"
