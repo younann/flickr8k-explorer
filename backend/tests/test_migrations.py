@@ -9,7 +9,7 @@ def test_initialize_applies_each_schema_migration_once(tmp_path):
     versions = connection.execute("SELECT version FROM schema_migrations ORDER BY version").fetchall()
     tables = connection.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'samples'").fetchall()
 
-    assert [row["version"] for row in versions] == [1, 2, 3]
+    assert [row["version"] for row in versions] == [1, 2, 3, 4]
     assert [row["name"] for row in tables] == ["samples"]
 
 

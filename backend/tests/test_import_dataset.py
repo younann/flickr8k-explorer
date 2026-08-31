@@ -1,7 +1,14 @@
 from pathlib import Path
 
+import pyarrow.parquet as pq
+
+import app.analysis as analysis_module
+import app.importer as importer_module
+import app.repository as repository_module
+from app.analysis import CURRENT_ANALYSIS_VERSION
 from app.db import connect
 from app.importer import import_shards
+from app.repository import DatasetRepository
 from tests.fixtures import write_fixture_shard
 
 
@@ -101,4 +108,33 @@ def test_reimport_records_the_current_analysis_version(tmp_path: Path):
             "SELECT value FROM analysis_metadata WHERE key = 'analysis_version'"
         ).fetchone()
 
-    assert version["value"] == "1"
+    assert version["value"] == CURRENT_ANALYSIS_VERSION
+
+
+def test_partial_reimport_after_an_analysis_upgrade_keeps_dataset_stale(tmp_path: Path, monkeypatch):
+    shard = write_fixture_shard(tmp_path / "train.parquet")
+    partial_shard = tmp_path / "partial.parquet"
+    pq.write_table(pq.read_table(shard).slice(0, 1), partial_shard)
+    data_dir = tmp_path / "data"
+    import_shards({"train": [shard]}, data_dir)
+
+    upgraded_version = "2"
+    monkeypatch.setattr(analysis_module, "CURRENT_ANALYSIS_VERSION", upgraded_version)
+    monkeypatch.setattr(importer_module, "CURRENT_ANALYSIS_VERSION", upgraded_version)
+    monkeypatch.setattr(repository_module, "CURRENT_ANALYSIS_VERSION", upgraded_version)
+
+    import_shards({"train": [partial_shard]}, data_dir)
+
+    assert DatasetRepository(data_dir).analysis_ready is False
+
+
+def test_analysis_readiness_rejects_a_stale_metadata_marker(tmp_path: Path):
+    shard = write_fixture_shard(tmp_path / "train.parquet")
+    data_dir = tmp_path / "data"
+    import_shards({"train": [shard]}, data_dir)
+
+    with connect(data_dir) as connection:
+        connection.execute("UPDATE analysis_metadata SET value = '0' WHERE key = 'analysis_version'")
+        connection.commit()
+
+    assert DatasetRepository(data_dir).analysis_ready is False

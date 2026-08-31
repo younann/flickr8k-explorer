@@ -93,8 +93,8 @@ def import_shards(shards_by_split: dict[str, Iterable[Path]], data_dir: Path) ->
                         connection.execute(
                             """INSERT OR REPLACE INTO sample_analysis
                             (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
-                             mean_caption_length, caption_length_spread, perceptual_hash)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                             mean_caption_length, caption_length_spread, perceptual_hash, analysis_version)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 sample_id,
                                 analysis.disagreement_score,
@@ -103,15 +103,23 @@ def import_shards(shards_by_split: dict[str, Iterable[Path]], data_dir: Path) ->
                                 analysis.mean_caption_length,
                                 analysis.caption_length_spread,
                                 image_hash,
+                                CURRENT_ANALYSIS_VERSION,
                             ),
                         )
                         analysis_written = True
                         source_row += 1
         if analysis_written:
-            connection.execute(
-                "INSERT OR REPLACE INTO analysis_metadata (key, value) VALUES ('analysis_version', ?)",
-                (CURRENT_ANALYSIS_VERSION,),
-            )
+            sample_count = connection.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
+            current_analysis_count = connection.execute(
+                "SELECT COUNT(*) FROM sample_analysis WHERE analysis_version = ?", (CURRENT_ANALYSIS_VERSION,)
+            ).fetchone()[0]
+            if sample_count == current_analysis_count:
+                connection.execute(
+                    "INSERT OR REPLACE INTO analysis_metadata (key, value) VALUES ('analysis_version', ?)",
+                    (CURRENT_ANALYSIS_VERSION,),
+                )
+            else:
+                connection.execute("DELETE FROM analysis_metadata WHERE key = 'analysis_version'")
         connection.commit()
     finally:
         connection.close()

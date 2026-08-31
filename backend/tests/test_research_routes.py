@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app.analysis import CURRENT_ANALYSIS_VERSION
 from app.db import connect
 from app.importer import import_shards
 from app.main import create_app
@@ -75,7 +76,9 @@ def test_radar_filters_by_score_and_exact_hash_near_duplicate_signal(tmp_path: P
         connection.execute("INSERT INTO captions (sample_id, position, text, word_count) VALUES ('unpaired', 0, 'Unpaired sample', 2)")
         connection.execute(
             """INSERT INTO sample_analysis (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
-            mean_caption_length, caption_length_spread, perceptual_hash) VALUES ('unpaired', 85, 0, 0, 0, 0, 'ffffffffffffffff')"""
+            mean_caption_length, caption_length_spread, perceptual_hash, analysis_version)
+            VALUES ('unpaired', 85, 0, 0, 0, 0, 'ffffffffffffffff', ?)""",
+            (CURRENT_ANALYSIS_VERSION,),
         )
         connection.commit()
 
@@ -129,9 +132,9 @@ def test_similar_samples_caps_tied_hashes_and_uses_sample_id_as_tiebreaker(tmp_p
             connection.execute(
                 """INSERT INTO sample_analysis
                     (sample_id, disagreement_score, token_disagreement, vocabulary_diversity,
-                    mean_caption_length, caption_length_spread, perceptual_hash)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (sample_id, 0, 0, 0, 0, 0, "0000000000000000"),
+                    mean_caption_length, caption_length_spread, perceptual_hash, analysis_version)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (sample_id, 0, 0, 0, 0, 0, "0000000000000000", CURRENT_ANALYSIS_VERSION),
             )
         connection.commit()
 

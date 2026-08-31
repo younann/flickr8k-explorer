@@ -37,10 +37,17 @@ class DatasetRepository:
                 return False
             sample_count = connection.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
             analysis_count = connection.execute("SELECT COUNT(*) FROM sample_analysis").fetchone()[0]
+            current_analysis_count = connection.execute(
+                "SELECT COUNT(*) FROM sample_analysis WHERE analysis_version = ?", (CURRENT_ANALYSIS_VERSION,)
+            ).fetchone()[0]
             version = connection.execute(
                 "SELECT value FROM analysis_metadata WHERE key = 'analysis_version'"
             ).fetchone()
-        return sample_count == analysis_count and version is not None and version["value"] == CURRENT_ANALYSIS_VERSION
+        return (
+            sample_count == analysis_count == current_analysis_count
+            and version is not None
+            and version["value"] == CURRENT_ANALYSIS_VERSION
+        )
 
     def samples(
         self, *, query: str = "", split: str | None = None, sort: str = "default", page: int = 1, page_size: int = 30
