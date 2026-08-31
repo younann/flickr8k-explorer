@@ -94,6 +94,7 @@ test("normalizes malformed Radar URL filters before requesting data", async () =
   expect(screen.getByRole("spinbutton", { name: "Maximum disagreement" })).toHaveValue(100);
   expect(screen.getByRole("checkbox", { name: "Near-duplicate signal only" })).not.toBeChecked();
   expect(fetch).toHaveBeenCalledWith("/api/radar");
+  expect(window.location.search).toBe("");
 });
 
 test("orders valid Radar score bounds from the URL before requesting data", async () => {

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { RadarOutlier, ScoreBucket } from "../../api/types";
 import { Feedback } from "../../components/Feedback";
@@ -62,11 +63,18 @@ export function RadarPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const filters = normalizedRadarFilters(new URLSearchParams(location.search));
+  const canonicalSearch = radarParams(filters).toString();
   const { split, minScore, maxScore, nearDuplicatesOnly } = filters;
   const { data, error, isLoading } = useRadar(radarParams(filters));
   const galleryContext = new URLSearchParams();
   if (split) galleryContext.set("split", split);
   galleryContext.set("sort", "disagreement");
+
+  useEffect(() => {
+    if (location.search.slice(1) !== canonicalSearch) {
+      navigate({ pathname: location.pathname, search: canonicalSearch ? `?${canonicalSearch}` : "" }, { replace: true });
+    }
+  }, [canonicalSearch, location.pathname, location.search, navigate]);
 
   function update(updates: Partial<RadarFilters>) {
     const next = new URLSearchParams(location.search);
